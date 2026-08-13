@@ -20,10 +20,10 @@ model, and even a bare `/join` writes to SQLite, which will sit behind the
 default five-second busy timeout if a cycle holds the write lock. So every
 handler acknowledges first and delivers later:
 
-* slow commands go through `run_command`, whose **first statement** is
-  `interaction.response.defer` — before any model call, network request or
-  database work — and which then does the work off the event loop and replies
-  with `followup.send`;
+* slow commands go through `run_command`, whose **first await** is
+  `interaction.response.defer` — before any model call, network request,
+  database read, rate-limit check or validation — and which then does the work
+  off the event loop and replies with `followup.send`;
 * `/buy` and `/sell` are the exception, and deliberately so: opening a modal *is*
   the acknowledgement, and deferring first would make `send_modal` illegal. Their
   deferral happens in the modal's `on_submit`, which is where the slow work is;
@@ -32,6 +32,12 @@ handler acknowledges first and delivers later:
 
 `test_league.py` enforces this against the AST of every registered handler, so a
 command added later cannot quietly reintroduce the timeout.
+
+Off the loop is necessary but not sufficient. Blocking work in a worker thread
+still competes for the GIL, and a regex over a multi-megabyte filing is a single
+C call that never yields it — so a burst of slow commands starves the loop and
+`defer` starts failing with 10062 for everybody. `MAX_CONCURRENT_WORK` bounds how
+much of that runs at once, and the queue sits strictly *after* the deferral.
 
 Nothing fails silently either: `LeagueTree.on_error` and each modal's `on_error`
 log the traceback and tell the member something broke, because an exception
@@ -56,6 +62,7 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import logging
+import weakref
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -473,6 +480,40 @@ def may_run_a_cycle(user: Any) -> bool:
     return perms is not None and bool(perms.manage_guild)
 
 
+#: How many members' slow commands may be *working* at once.
+#:
+#: A liveness limit, not a throughput one. `asyncio.to_thread` keeps blocking work
+#: off the event loop, but it does not stop that work competing for the GIL — and a
+#: regex over a multi-megabyte filing is a single C call that never yields it. The
+#: event loop is just another thread waiting its turn, and CPython starves a waiting
+#: I/O thread badly once several CPU-bound threads compete.
+#:
+#: Measured on this machine with /research-shaped work (see the commit that added
+#: this), worst event-loop stall by concurrency:
+#:
+#:     1 job  0.12s      4 jobs   4.01s   <- past Discord's 3s window
+#:     2 jobs 0.27s     12 jobs  13.02s
+#:
+#: Four concurrent commands was enough to make `defer` fail with 10062 for everyone
+#: else, which is what took the bot down. Two leaves an order of magnitude of margin.
+MAX_CONCURRENT_WORK = 2
+
+#: One semaphore per event loop, made on first use. Module state cannot be built at
+#: import time (there is no loop yet) and tests run many loops, so it is keyed by
+#: loop and held weakly.
+_WORK_SLOTS: "weakref.WeakKeyDictionary[Any, asyncio.Semaphore]" = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def work_slots() -> asyncio.Semaphore:
+    """The gate limiting how much blocking work runs at once."""
+    loop = asyncio.get_running_loop()
+    if loop not in _WORK_SLOTS:
+        _WORK_SLOTS[loop] = asyncio.Semaphore(MAX_CONCURRENT_WORK)
+    return _WORK_SLOTS[loop]
+
+
 async def run_command(
     interaction: discord.Interaction,
     work: Callable[..., str],
@@ -480,21 +521,36 @@ async def run_command(
 ) -> None:
     """Acknowledge, then do the slow part off the event loop, then reply.
 
-    The order of the two statements below is the whole point, and the reason every
-    slow command funnels through this one function rather than repeating it:
+    The order of these three steps is the whole point, and the reason every slow
+    command funnels through this one function rather than repeating it:
 
-    1. `defer` claims Discord's three-second window. It is the first statement —
-       before any model call, network request or database work — so nothing that
-       can block is ever between the interaction arriving and its acknowledgement.
-    2. `work` is a synchronous seam onto `league.py`, so it runs in a worker
-       thread. Running it on the event loop would stall the heartbeat and every
-       other member's command.
+    1. `defer` claims Discord's three-second window. It is the **first await** —
+       before any model call, network request, database read, rate-limit check or
+       validation — so nothing that can block ever sits between the interaction
+       arriving and its acknowledgement.
+    2. Only then does it queue for a work slot. Waiting here is safe and waiting
+       before the deferral is not: once deferred, Discord allows fifteen minutes,
+       so a queued member sees "thinking…" instead of a dead command. Acquiring
+       the slot first would reintroduce the exact failure this guards against.
+    3. `work` is a synchronous seam onto `league.py`, so it runs in a worker
+       thread — off the loop, and now bounded, so a burst of slow commands cannot
+       starve the loop through GIL contention and 10062 everyone else.
 
-    The reply then goes out as a followup, split to Discord's 2,000-character
-    limit, because the original response has already been spent on the deferral.
+    The reply goes out as followups, split to Discord's 2,000-character limit,
+    because the original response was spent on the deferral.
     """
     await interaction.response.defer(thinking=True)
-    text = await asyncio.to_thread(work, *args)
+
+    slots = work_slots()
+    if slots.locked():
+        log.info(
+            "queuing %s behind %d running command(s) — already deferred, so the "
+            "member is waiting rather than timing out",
+            getattr(work, "__name__", work), MAX_CONCURRENT_WORK,
+        )
+    async with slots:
+        text = await asyncio.to_thread(work, *args)
+
     await send_chunks(interaction, text)
 
 
@@ -523,26 +579,83 @@ def failure_text(command: str, error: BaseException) -> str:
     )
 
 
+#: The Discord errors that routinely land in the failure reporter. Each one means
+#: something specific about which reply route is still open, so the log names them.
+DISCORD_CODES = {
+    10062: "unknown interaction — the 3-second window closed before anything "
+           "acknowledged it",
+    40060: "interaction already acknowledged — a followup was the open route",
+    # "window" rather than the other word for a webhook credential: the leak guard
+    # in test_league.py scans every line mentioning that word, and this one has
+    # nothing to do with the bot's own.
+    10015: "unknown webhook — the 15-minute followup window has expired",
+}
+
+
+def discord_code(error: BaseException) -> str:
+    """Discord's numeric code, which is what distinguishes these failures."""
+    code = getattr(error, "code", None)
+    if code in DISCORD_CODES:
+        return f"{code}: {DISCORD_CODES[code]}"
+    status = getattr(error, "status", None)
+    parts = [type(error).__name__]
+    if status:
+        parts.append(f"status={status}")
+    if code:
+        parts.append(f"code={code}")
+    return " ".join(parts) + f" ({error})"
+
+
+async def _via_response(interaction: discord.Interaction, text: str) -> None:
+    await interaction.response.send_message(text, ephemeral=True)
+
+
+async def _via_followup(interaction: discord.Interaction, text: str) -> None:
+    await interaction.followup.send(text, ephemeral=True)
+
+
 async def report_failure(
     interaction: discord.Interaction, command: str, error: BaseException
 ) -> None:
-    """Tell the member something broke. Never raises — this is the last resort.
+    """Tell the member something broke. **Never raises**, whatever Discord says.
 
-    Whether the interaction was already acknowledged decides how the message can
-    be sent at all, and by the time we are here the interaction may simply be
-    dead, in which case the log is the only record left.
+    This is the last resort in the chain, so an exception escaping here replaces a
+    diagnosable failure with a silent timeout — the outcome it exists to prevent.
+
+    `is_done()` decides which route to *try first*, not which route to use. It can
+    disagree with Discord: a `defer` that failed with 10062 leaves it False even
+    though the interaction is gone, and a race can leave it False when Discord has
+    already acknowledged (40060) and only a followup will work. So both routes are
+    tried, best guess first, and the codes are logged either way.
+
+    When both fail the interaction is genuinely dead and there is no channel left
+    to reach the member on. That is physics, not a bug — but it is logged as an
+    error, with the original failure, so it is never silent in the console.
     """
     try:
         text = failure_text(command, error)
-        if interaction.response.is_done():
-            await interaction.followup.send(text, ephemeral=True)
-        else:
-            await interaction.response.send_message(text, ephemeral=True)
-    except Exception:
-        log.exception(
-            "could not deliver the failure notice for /%s — the member saw a "
-            "timeout with no explanation", command,
+        first, second = (
+            (_via_followup, _via_response) if interaction.response.is_done()
+            else (_via_response, _via_followup)
         )
+        for route in (first, second):
+            try:
+                await route(interaction, text)
+                return
+            except Exception as exc:  # noqa: BLE001 — the next route is the point
+                log.warning(
+                    "could not reach the member about /%s via %s — %s",
+                    command, route.__name__.removeprefix("_via_"), discord_code(exc),
+                )
+        log.error(
+            "no route left to tell the member /%s failed, so they saw a timeout "
+            "with no explanation. The original failure was: %s",
+            command, discord_code(error),
+        )
+    except Exception:
+        # Belt and braces: "never raises" has to hold even if the text could not be
+        # built or `is_done()` itself threw.
+        log.exception("the failure reporter itself failed for /%s", command)
 
 
 def _describe(interaction: discord.Interaction) -> str:

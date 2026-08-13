@@ -14,6 +14,8 @@ import json
 import logging
 import re
 import textwrap
+import threading
+import time
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -1897,17 +1899,29 @@ def test_the_discord_wrapper_exception_is_unwrapped_for_the_member() -> None:
     assert "ValueError" in bot.failure_text("research", wrapped)
 
 
-def test_a_dead_interaction_is_logged_rather_than_raised(caplog) -> None:
-    """15 minutes on, the token is gone. That must not become a second exception."""
+def test_a_failing_reply_route_is_logged_rather_than_raised(caplog) -> None:
+    """A dead route must not become a second exception.
+
+    This previously asserted that a failed response route ended the attempt. It
+    no longer does: the reporter now tries the other route, because `is_done()`
+    can disagree with Discord and giving up there is how a member ended up with a
+    silent timeout. The assertion is stronger for it — not raising *and* still
+    delivering.
+    """
     interaction = FakeInteraction()
 
     async def refuse(*args: object, **kwargs: object) -> None:
         raise RuntimeError("404 Not Found (error code: 10015): Unknown Webhook")
 
     interaction.response.send_message = refuse
-    with caplog.at_level(logging.ERROR, logger="thesis.bot"):
+    with caplog.at_level(logging.WARNING, logger="thesis.bot"):
         asyncio.run(bot.report_failure(interaction, "cycle", RuntimeError("original")))
-    assert "could not deliver the failure notice" in caplog.text
+
+    assert "could not reach the member about /cycle via response" in caplog.text
+    assert any(call.startswith("followup:") for call in interaction.calls), (
+        "the surviving route should still have carried the message"
+    )
+    assert "original" in " ".join(interaction.calls)
 
 
 @pytest.mark.parametrize("modal, command", [("BuyModal", "buy"), ("SellModal", "sell")])
@@ -2430,3 +2444,334 @@ def test_the_flag_reports_when_there_was_nothing_to_remove(monkeypatch) -> None:
     result = CliRunner().invoke(cli.app, ["bot", "--clear-global"])
     assert result.exit_code == 0
     assert "Nothing to remove" in result.output
+
+
+# ============================ the loop stays alive while a command is working
+#
+# `asyncio.to_thread` keeps blocking work off the loop but does not stop it
+# competing for the GIL. Measured with /research-shaped work, the worst loop
+# stall went 0.12s at one concurrent job, 0.27s at two, and 4.01s at four —
+# past Discord's three-second window, which is the 10062-at-defer that took the
+# bot down live. These tests pin the two properties that prevent it: the work is
+# bounded, and the deferral never waits for anything.
+
+SLEEP = 0.4  # long enough that a blocked loop cannot hide it, short enough to run
+
+
+def sleeper(seconds: float = SLEEP, answer: str = "slow done"):
+    """A blocking seam. `time.sleep` releases the GIL, so this is deterministic."""
+
+    def work() -> str:
+        time.sleep(seconds)
+        return answer
+
+    return work
+
+
+async def heartbeat(stop: asyncio.Event, ticks: list[float]) -> None:
+    """Records every time the loop got a turn — the liveness witness."""
+    while not stop.is_set():
+        await asyncio.sleep(0.01)
+        ticks.append(time.perf_counter())
+
+
+def fresh_slots(limit: int, monkeypatch) -> None:
+    """Run the next scenario with a different concurrency cap.
+
+    Each `asyncio.run` gets its own loop and so its own semaphore, which is why
+    patching the constant is enough.
+    """
+    monkeypatch.setattr(bot, "MAX_CONCURRENT_WORK", limit)
+
+
+def test_the_loop_keeps_running_while_a_command_works() -> None:
+    """The basic guarantee: one member's slow command does not freeze the bot."""
+
+    async def scenario() -> int:
+        stop = asyncio.Event()
+        ticks: list[float] = []
+        watcher = asyncio.create_task(heartbeat(stop, ticks))
+
+        await bot.run_command(FakeInteraction(), sleeper())
+
+        stop.set()
+        await watcher
+        return len(ticks)
+
+    ticks = asyncio.run(scenario())
+    assert ticks > 10, (
+        f"the loop only got {ticks} turns during a {SLEEP}s command — it was blocked"
+    )
+
+
+def test_two_concurrent_commands_are_both_deferred_while_one_is_slow() -> None:
+    """The live failure, as a test.
+
+    One command holds a worker for `SLEEP`; a second arrives mid-flight. Both must
+    be acknowledged. On a blocked loop the second `defer` never runs in time, which
+    is precisely the 10062 Discord reported.
+    """
+    slow = FakeInteraction()
+    quick = FakeInteraction()
+
+    async def scenario() -> float:
+        first = asyncio.create_task(bot.run_command(slow, sleeper()))
+        await asyncio.sleep(0.05)  # let the slow one reach its worker thread
+        assert slow.calls == ["defer"], "the slow command should be deferred by now"
+
+        started = time.perf_counter()
+        await bot.run_command(quick, lambda: "quick done")
+        quick_took = time.perf_counter() - started
+
+        await first
+        return quick_took
+
+    quick_took = asyncio.run(scenario())
+
+    assert slow.calls == ["defer", "followup:slow done"]
+    assert quick.calls == ["defer", "followup:quick done"]
+    assert quick_took < SLEEP, (
+        f"the second command took {quick_took:.2f}s behind a {SLEEP}s one — it was "
+        "waiting on the loop instead of running alongside it"
+    )
+
+
+def test_a_third_command_is_deferred_even_with_no_worker_free(monkeypatch) -> None:
+    """Deferring must never wait for a work slot.
+
+    This is the ordering that matters most: queueing *after* the deferral costs a
+    member some waiting inside Discord's fifteen-minute followup window, whereas
+    queueing before it burns the three-second window and kills the interaction.
+    """
+    fresh_slots(1, monkeypatch)
+    queued = FakeInteraction()
+
+    async def scenario() -> None:
+        holder = asyncio.create_task(bot.run_command(FakeInteraction(), sleeper()))
+        await asyncio.sleep(0.05)  # the only slot is now taken
+
+        waiting = asyncio.create_task(bot.run_command(queued, lambda: "queued done"))
+        await asyncio.sleep(0.05)
+        assert queued.calls == ["defer"], (
+            "the queued command must be acknowledged before it waits for a slot"
+        )
+        assert not waiting.done(), "it should still be waiting for the worker"
+
+        await asyncio.gather(holder, waiting)
+
+    asyncio.run(scenario())
+    assert queued.calls == ["defer", "followup:queued done"]
+
+
+def test_a_burst_of_commands_is_capped_at_the_concurrency_limit(monkeypatch) -> None:
+    """However many arrive at once, only so many run — that is the whole defence."""
+    fresh_slots(2, monkeypatch)
+    live = 0
+    peak = 0
+    guard = threading.Lock()
+
+    def counted() -> str:
+        nonlocal live, peak
+        with guard:
+            live += 1
+            peak = max(peak, live)
+        time.sleep(0.1)
+        with guard:
+            live -= 1
+        return "done"
+
+    interactions = [FakeInteraction() for _ in range(8)]
+
+    async def scenario() -> None:
+        await asyncio.gather(
+            *(bot.run_command(i, counted) for i in interactions)
+        )
+
+    asyncio.run(scenario())
+
+    assert peak <= 2, f"{peak} workers ran at once against a cap of 2"
+    for interaction in interactions:
+        assert interaction.calls == ["defer", "followup:done"], (
+            "every member is acknowledged and answered, however deep the queue"
+        )
+
+
+def test_every_command_is_acknowledged_before_any_of_them_start_working(
+    monkeypatch,
+) -> None:
+    """Eight members at once: all eight deferrals land before the first reply."""
+    fresh_slots(1, monkeypatch)
+    order: list[str] = []
+    interactions = [FakeInteraction() for _ in range(8)]
+
+    def working() -> str:
+        order.append("work")
+        time.sleep(0.05)
+        return "done"
+
+    async def scenario() -> None:
+        tasks = [
+            asyncio.create_task(bot.run_command(i, working)) for i in interactions
+        ]
+        await asyncio.sleep(0.05)
+        order.append(f"deferred={sum('defer' in i.calls for i in interactions)}")
+        await asyncio.gather(*tasks)
+
+    asyncio.run(scenario())
+    assert "deferred=8" in order, (
+        f"not every member was acknowledged before the queue drained: {order}"
+    )
+
+
+def test_the_work_cap_is_small_enough_to_keep_the_loop_alive() -> None:
+    """Measured: 2 concurrent stalls the loop 0.27s, 4 stalls it past Discord's 3s."""
+    assert 1 <= bot.MAX_CONCURRENT_WORK <= 2, (
+        f"a cap of {bot.MAX_CONCURRENT_WORK} was measured to starve the event loop"
+    )
+
+
+def test_run_command_defers_before_it_takes_a_work_slot() -> None:
+    """Asserted against the source too, since the cost of getting it backwards is
+    the outage this came from and the runtime symptom is entirely Discord-side."""
+    function = next(
+        node for node in ast.walk(BOT_TREE)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "run_command"
+    )
+    lines_of = lambda name: [  # noqa: E731
+        node.lineno for node in ast.walk(function)
+        if isinstance(node, ast.Call)
+        and (
+            (isinstance(node.func, ast.Attribute) and node.func.attr == name)
+            or (isinstance(node.func, ast.Name) and node.func.id == name)
+        )
+    ]
+    assert lines_of("defer"), "run_command must defer"
+    assert lines_of("work_slots"), "run_command must bound its concurrency"
+    assert min(lines_of("defer")) < min(lines_of("work_slots")), (
+        "queueing for a work slot before deferring would burn the 3-second window"
+    )
+    assert min(lines_of("defer")) < min(lines_of("to_thread"))
+
+
+# ----------------------------------------- the failure reporter cannot itself fail
+
+class DiscordError(Exception):
+    """A stand-in for discord.HTTPException: what matters is `code` and `status`."""
+
+    def __init__(self, code: int, status: int = 404) -> None:
+        super().__init__(f"{status} (error code: {code})")
+        self.code = code
+        self.status = status
+
+
+UNKNOWN_INTERACTION = 10062
+ALREADY_ACKNOWLEDGED = 40060
+DEAD_WEBHOOK = 10015
+
+
+def failing(interaction: FakeInteraction, route: str, error: Exception) -> None:
+    """Make one of the two reply routes raise."""
+
+    async def refuse(*args: object, **kwargs: object) -> None:
+        raise error
+
+    if route == "response":
+        interaction.response.send_message = refuse
+    else:
+        interaction.followup.send = refuse
+
+
+def test_report_failure_never_raises_when_both_routes_are_dead(caplog) -> None:
+    """The 10062 case: nothing acknowledged in time, so no route is open at all."""
+    interaction = FakeInteraction()
+    failing(interaction, "response", DiscordError(UNKNOWN_INTERACTION))
+    failing(interaction, "followup", DiscordError(UNKNOWN_INTERACTION))
+
+    with caplog.at_level(logging.WARNING, logger="thesis.bot"):
+        asyncio.run(  # must not raise
+            bot.report_failure(interaction, "research", RuntimeError("the original"))
+        )
+
+    assert "no route left to tell the member /research failed" in caplog.text
+    assert "the original" in caplog.text, "the real failure is not lost"
+    assert "10062" in caplog.text
+    assert any(record.levelno == logging.ERROR for record in caplog.records)
+
+
+def test_an_already_acknowledged_interaction_falls_back_to_a_followup(caplog) -> None:
+    """40060: `is_done()` said no, Discord said yes. A followup still reaches them."""
+    interaction = FakeInteraction()
+    failing(interaction, "response", DiscordError(ALREADY_ACKNOWLEDGED, status=400))
+
+    with caplog.at_level(logging.WARNING, logger="thesis.bot"):
+        asyncio.run(bot.report_failure(interaction, "standings", RuntimeError("boom")))
+
+    assert any(call.startswith("followup:") for call in interaction.calls), (
+        "the fallback route was never tried"
+    )
+    assert "boom" in " ".join(interaction.calls), "the member is told what broke"
+    assert "40060" in caplog.text
+
+
+def test_a_deferred_interaction_is_answered_by_followup_first() -> None:
+    """Already acknowledged, so the response route is not even the first guess."""
+    interaction = FakeInteraction()
+    asyncio.run(interaction.response.defer())
+    asyncio.run(bot.report_failure(interaction, "cycle", RuntimeError("mid-flight")))
+
+    assert interaction.calls[0] == "defer"
+    assert interaction.calls[1].startswith("followup:")
+
+
+def test_an_expired_followup_token_falls_back_to_the_response(caplog) -> None:
+    """10015: fifteen minutes gone. Try the other route rather than give up."""
+    interaction = FakeInteraction()
+    asyncio.run(interaction.response.defer())
+    failing(interaction, "followup", DiscordError(DEAD_WEBHOOK))
+
+    with caplog.at_level(logging.WARNING, logger="thesis.bot"):
+        asyncio.run(bot.report_failure(interaction, "research", RuntimeError("boom")))
+
+    assert "10015" in caplog.text
+    assert any(call.startswith("send_message:") for call in interaction.calls)
+
+
+def test_report_failure_survives_an_interaction_that_is_broken_outright(caplog) -> None:
+    """Even `is_done()` throwing must not turn into a second, louder failure."""
+
+    class Hostile:
+        response = property(lambda self: (_ for _ in ()).throw(RuntimeError("gone")))
+
+    with caplog.at_level(logging.ERROR, logger="thesis.bot"):
+        asyncio.run(bot.report_failure(Hostile(), "buy", RuntimeError("original")))
+
+    assert "the failure reporter itself failed" in caplog.text
+
+
+def test_the_discord_code_is_named_not_just_the_status() -> None:
+    """The numeric code is what distinguishes these; a bare 404 says nothing."""
+    assert "10062" in bot.discord_code(DiscordError(UNKNOWN_INTERACTION))
+    assert "3-second window" in bot.discord_code(DiscordError(UNKNOWN_INTERACTION))
+    assert "40060" in bot.discord_code(DiscordError(ALREADY_ACKNOWLEDGED))
+    assert "15-minute" in bot.discord_code(DiscordError(DEAD_WEBHOOK))
+    # Anything unrecognised still identifies itself rather than vanishing.
+    described = bot.discord_code(ValueError("something else"))
+    assert "ValueError" in described and "something else" in described
+
+
+def test_a_crash_mid_command_still_reaches_the_member() -> None:
+    """End to end: deferred, then the worker raises. The member hears about it."""
+    interaction = FakeInteraction()
+
+    def explodes() -> str:
+        raise RuntimeError("yfinance died")
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(bot.run_command(interaction, explodes))
+
+    # discord.py routes that to on_error, which is what the tree does for real.
+    asyncio.run(
+        tree_only().on_error(interaction, raised(RuntimeError("yfinance died")))
+    )
+    assert interaction.calls[0] == "defer"
+    assert any("yfinance died" in call for call in interaction.calls)

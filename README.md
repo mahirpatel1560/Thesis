@@ -556,11 +556,43 @@ reliably that fast — a screen touches ~490 tickers, a brief calls a model, and
 `/join` writes to SQLite, which waits on the default five-second busy timeout if a
 cycle holds the write lock. So every handler acknowledges first and answers later.
 
-Five commands go through `bot.run_command`, whose **first statement** is
-`interaction.response.defer` — before any model call, network request or database
-work. It then runs the synchronous league seam in a worker thread (on the event loop
-it would stall the heartbeat for every other member) and replies with `followup.send`,
-split to Discord's 2,000-character limit.
+Five commands go through `bot.run_command`, whose **first await** is
+`interaction.response.defer` — before any model call, network request, database read,
+rate-limit check or validation. It then runs the synchronous league seam in a worker
+thread and replies with `followup.send`, split to Discord's 2,000-character limit.
+
+### Off the loop is not enough — the GIL is
+
+Live testing found `/research` and `/standings` both failing with **10062 Unknown
+interaction** *at the `defer` call*, while another `/research` was running. Every
+handler already used `asyncio.to_thread`, so nothing was blocking the loop directly.
+The cause was the GIL: a regex over a multi-megabyte filing is a single C call that
+never yields it, and the event loop is just another thread waiting its turn. CPython
+starves a waiting I/O thread badly once several CPU-bound threads compete.
+
+Measured on this machine with `/research`-shaped work — worst event-loop stall by
+number of concurrent commands:
+
+| concurrent | 1 | 2 | 4 | 8 | 12 |
+|---|---|---|---|---|---|
+| worst loop stall | 0.12s | 0.27s | **4.01s** | 8.41s | 13.02s |
+
+Four is enough to blow Discord's three-second window for everyone else. Twelve
+members at once, driven through the real `run_command`: **7 of 12 got 10062** with a
+worst stall of 11.49s.
+
+So `MAX_CONCURRENT_WORK` bounds how much blocking work runs at once. At a cap of 2
+the same twelve members produce a worst stall of 0.83s and **zero** failed
+deferrals — and total wall time is unchanged (14.1s → 13.4s), because GIL-bound
+threads were never buying parallelism in the first place. The cap costs nothing and
+buys liveness.
+
+The queue sits strictly **after** the deferral. That ordering is the point: once
+deferred, Discord allows fifteen minutes, so a queued member sees "thinking…" and
+gets an answer, whereas queueing before the deferral would burn the three-second
+window and kill the interaction — reintroducing the exact bug. A test fills every
+slot and asserts the next command is still acknowledged immediately, and another
+asserts the ordering against `run_command`'s AST.
 
 `/buy` and `/sell` are the deliberate exception. Opening a modal **is** the
 acknowledgement, and deferring first makes `send_modal` illegal — so their deferral
@@ -582,10 +614,20 @@ eighth command fails the suite until it is covered.
 An exception raised *before* the acknowledgement is indistinguishable from a hang
 from the outside — which is how the first live `/cycle` failure presented. So
 `LeagueTree.on_error` and each modal's `on_error` catch everything, log the traceback,
-and tell the member what broke, choosing `response` or `followup` depending on whether
-the interaction was already acknowledged. The message names the exception type and is
-worded so it can never be mistaken for a rule refusal: a refusal is the system
-working, and always names its rule.
+and tell the member what broke. The message names the exception type and is worded so
+it can never be mistaken for a rule refusal: a refusal is the system working, and
+always names its rule.
+
+`report_failure` is the last thing in that chain, so an exception escaping it turns a
+diagnosable failure back into a silent timeout. It cannot raise. `is_done()` picks
+which reply route to try *first*, not which to use — it can disagree with Discord,
+since a `defer` that died with 10062 leaves it `False`, and a race can leave it
+`False` when Discord has already acknowledged (40060) and only a followup will work.
+Both routes are tried, and Discord's numeric code is logged either way, because a
+bare 404 says nothing while `10062` says the window closed. When both routes fail the
+interaction is genuinely dead and there is nowhere left to reach the member — that is
+physics, not a bug — so it logs an `ERROR` carrying the *original* failure, which is
+the thing worth keeping.
 
 ### Registration is per guild
 
