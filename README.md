@@ -461,13 +461,18 @@ uv run thesis bot        # needs DISCORD_TOKEN in .env
 
 | Command | What it does | Daily cap |
 |---|---|---:|
-| `/join [mandate]` | Creates and funds your book. Mandate is one of `value`, `momentum`, `monk` (default `value`). Idempotent — joining twice does not fund you twice | 3 |
-| `/buy TICKER [bucket] [price] [stop]` | Opens a modal for the written plan, then logs the buy | 8 |
-| `/sell TICKER [price]` | Opens a modal for size and outcome, then closes or trims | 8 |
+| `/join [mandate]` | Creates and funds your book. Mandate is one of `value`, `momentum`, `monk` (default `value`). Idempotent — joining twice does not fund you twice | — |
+| `/buy TICKER [bucket] [price] [stop]` | Opens a modal for the written plan, then logs the buy | 8 accepted |
+| `/sell TICKER [price]` | Opens a modal for size and outcome, then closes or trims | 8 accepted |
 | `/review [note]` | Every open position against its own stated trigger. Clears the 9-day lockout | 6 |
 | `/research TICKER` | This week's brief for a company, generated on a cache miss | 3 |
-| `/standings` | Every member's book ranked by return, with the SPY mirror as the bottom row | 40 |
+| `/standings` | Every member's book ranked by return, with the SPY mirror as the bottom row | — |
 | `/cycle` | Runs this week's cycle immediately. Server managers only | — |
+
+`/join` and `/standings` are deliberately unmetered: the first is idempotent, so a
+repeat writes nothing, and the second is a pure read that spends no API budget.
+`league.DAILY_LIMITS` carries a number for both anyway — it is the policy table, and
+the bot decides which commands to draw against it.
 
 ### `/buy` and `/sell` — the modal is the written plan
 
@@ -497,7 +502,19 @@ Keyed by **company and ISO week**: a hit is served from disk, a miss generates. 
 
 Per user, per command, per UTC day. Two jobs: keep one member from burning the API budget on `/research` misses, and keep the journal's discipline from being brute-forced — someone who needs sixteen buys a day is not writing sixteen theses.
 
-An attempt is counted **before** it is judged, so a refused command still consumes an attempt. That's deliberate: otherwise a member can hammer a failing command for free, and a `/research` miss costs real money. Successful replies show the remaining allowance.
+**Refusals are free on `/buy` and `/sell`.** Only an accepted trade draws down the
+allowance. A refusal there is pure validation against the seven rules — it calls no
+API and writes no row — and for someone learning the discipline the refusal *is* the
+lesson. Charging for it would ration the teaching and push a member to guess more
+loosely rather than more carefully, which is backwards.
+
+`/research` and `/review` count the **attempt**, because a `/research` miss generates
+a brief and costs real money whether the member likes what it says or not. The two
+styles share one cap per command; they differ only in which event is billable. Both
+are implemented over the same counter — `league.rate_status` reads it without
+charging, `league.consume_rate` charges once — and a test pins the pair to the same
+cap boundary so the styles can't drift apart. Successful replies show the remaining
+allowance.
 
 The weekly post fires **Monday 22:00 UTC** — after the US close, so the week's sessions are settled and the screen is current. It carries each agent's reasoning verbatim, then the fills, the refusals with their rule numbers, and anything still waiting on the next open.
 
@@ -521,6 +538,51 @@ An order also cannot be placed on someone else's book: whatever book name the mo
 - **`DISCORD_TOKEN`** is read from `.env` exactly once, at startup. A test asserts it is read in one place and never appears on a line that sends, logs or prints.
 
 Fills work exactly as the Arena's do: an order fills at the open of the first session **after its own decision date**, settled at the start of the next cycle, with open and pending exposure counted together against the caps.
+
+---
+
+## The landing page — `site/`
+
+One screen, one file: `site/index.html` carries its own CSS inline, loads nothing from
+another origin, and ships no JavaScript beyond a single `onerror` on the screenshot.
+A `Content-Security-Policy` meta tag (`default-src 'none'`) enforces that at runtime
+rather than leaving it as a claim, and it travels with the file instead of depending on
+host headers.
+
+**The copy is not written here.** The positioning line and the four contract lines are
+quoted verbatim from `PRODUCT.md`, and `tests/test_site.py` pins them in both
+directions — reword either file without the other and the suite fails. The same tests
+run the page's own prose through `lint._recommendation_hits`, so the page is held to the
+bar it advertises. The one exemption is the contract line *"Never recommends what to
+buy"*, which trips a lexicon that cannot tell a promise from an instruction; a companion
+test proves the exemption is that narrow and not a hole.
+
+Preview it locally:
+
+```bash
+uv run python -m http.server 4173 --directory site
+```
+
+### Deploying it
+
+Vercel, zero build step. `site/` has no `package.json`, so there is nothing to detect
+and nothing to build — a test asserts no manifest ever appears there.
+
+One setting is not in any file: **Root Directory must be set to `site`** in the Vercel
+project settings. `vercel.json` cannot set its own root, and it is only read once
+`site/` *is* the root — deploy from the repo root instead and `site/vercel.json` is
+silently ignored. The config itself only adds response headers and a one-hour cache
+policy for the weekly screenshot, which is replaced under the same filename.
+
+Two blanks are left deliberately unfilled rather than guessed:
+
+- `DISCORD_CLIENT_ID` in the invite `href` — paste the application's client ID.
+- the repo link, which currently points at `github.com`.
+
+Both are visibly unfinished instead of being plausible links that go nowhere. The
+screenshot slot expects `site/standings.png` at roughly 4:3; until it exists the slot
+renders a labelled placeholder, and on a phone an empty slot yields the top of the
+screen to the product name rather than to a "drop a file here" box.
 
 ---
 

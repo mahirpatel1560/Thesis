@@ -63,6 +63,19 @@ CREATE TABLE IF NOT EXISTS league_usage (
 #: Per-user, per-day caps. Two jobs: keep one member from burning the API budget
 #: with `/research`, and keep the journal's discipline from being brute-forced —
 #: someone who needs sixteen buys a day is not writing sixteen theses.
+#:
+#: Commands split into two metering styles, and which one a command gets depends
+#: on whether a rejected attempt costs anything:
+#:
+#: * **Charge on acceptance** (`buy`, `sell`) — a refusal here is pure validation
+#:   against the seven rules. It calls no API and writes no row, and for someone
+#:   learning the discipline the refusal *is* the lesson. Charging for it would
+#:   ration the teaching and push a member to guess less carefully, not more.
+#: * **Charge on attempt** (`research`, and the rest) — a `/research` miss
+#:   generates a brief, which costs real money whether the member likes the
+#:   result or not, so the attempt is the billable event.
+CHARGE_ON_ACCEPTANCE = frozenset({"buy", "sell"})
+
 DAILY_LIMITS: dict[str, int] = {
     "buy": 8,
     "sell": 8,
@@ -78,10 +91,14 @@ class RateVerdict:
     command: str
     limit: int
     used: int
+    #: True when `used` counts an attempt that has already been charged
+    #: (charge-on-attempt), False when it is the balance *before* charging
+    #: (charge-on-acceptance). Decides whether the cap compares with <= or <.
+    charged: bool = True
 
     @property
     def allowed(self) -> bool:
-        return self.used <= self.limit
+        return self.used <= self.limit if self.charged else self.used < self.limit
 
     @property
     def remaining(self) -> int:
@@ -94,6 +111,43 @@ class RateVerdict:
         )
 
 
+def rate_status(
+    conn: sqlite3.Connection,
+    guild_id: int | str,
+    member_id: int | str,
+    command: str,
+    on_day: date | None = None,
+    limit: int | None = None,
+) -> RateVerdict:
+    """What the member has spent so far today. Reads only — charges nothing.
+
+    The first half of charge-on-acceptance: ask whether there is room, do the
+    work, and only then call `consume_rate`.
+    """
+    cap = DAILY_LIMITS.get(command, 20) if limit is None else limit
+    day = (on_day or journal.today()).isoformat()
+    row = conn.execute(
+        "SELECT used FROM league_usage WHERE guild_id = ? AND member_id = ? "
+        "AND command = ? AND day = ?",
+        (str(guild_id), str(member_id), command, day),
+    ).fetchone()
+    return RateVerdict(
+        command=command, limit=cap, used=row[0] if row else 0, charged=False
+    )
+
+
+def consume_rate(
+    conn: sqlite3.Connection,
+    guild_id: int | str,
+    member_id: int | str,
+    command: str,
+    on_day: date | None = None,
+    limit: int | None = None,
+) -> RateVerdict:
+    """Charge one use and report the new balance. Call this only after success."""
+    return check_rate(conn, guild_id, member_id, command, on_day, limit)
+
+
 def check_rate(
     conn: sqlite3.Connection,
     guild_id: int | str,
@@ -102,11 +156,13 @@ def check_rate(
     on_day: date | None = None,
     limit: int | None = None,
 ) -> RateVerdict:
-    """Count this use against the member's daily allowance and return the verdict.
+    """Charge one use immediately and return the verdict — charge-on-attempt.
 
-    Counts first and then reports, so a refused attempt still consumes an attempt.
-    That is deliberate: otherwise a member can hammer a command that fails
-    validation for free, and `/research` misses cost real money.
+    Correct for commands where making the attempt is itself the cost: a
+    `/research` miss generates a brief and spends money regardless of what the
+    member does with it. **Wrong for `/buy` and `/sell`**, where a refusal is pure
+    validation — those use `rate_status` then `consume_rate` so only accepted
+    trades are charged. See `CHARGE_ON_ACCEPTANCE`.
     """
     cap = DAILY_LIMITS.get(command, 20) if limit is None else limit
     day = (on_day or journal.today()).isoformat()

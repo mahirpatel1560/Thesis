@@ -1163,17 +1163,158 @@ def test_the_limit_resets_the_next_day(league_db) -> None:
     ).allowed
 
 
-def test_a_failed_attempt_still_consumes_the_allowance(league_db, offline) -> None:
-    """Otherwise a member can hammer a failing command for free, and a /research
-    miss costs real money."""
-    league.join(league_db, GUILD, ALICE, "alice", on_date=d("2026-08-01"))
-    for _ in range(league.DAILY_LIMITS["buy"]):
-        seam().buy_text(GUILD, ALICE, "ACME", journal.CORE, 100.0, None,
-                        **{**PLAN, "thesis": "cheap"})   # refused every time
+def test_a_refused_buy_does_not_consume_the_allowance(league_db, offline) -> None:
+    """A refusal is pure validation with no API cost, and for someone learning the
+    discipline it is the teaching moment — so it must not be rationed.
 
-    text = seam().buy_text(GUILD, ALICE, "ACME", journal.CORE, 100.0, None, **PLAN)
-    assert "Daily limit reached for `/buy`" in text
-    assert journal.holdings(league_db, "m1") == ()
+    This inverts an earlier test that asserted the opposite; the behaviour was
+    changed deliberately, not the assertion weakened.
+    """
+    league.join(league_db, GUILD, ALICE, "alice", on_date=d("2026-08-01"))
+
+    for _ in range(league.DAILY_LIMITS["buy"] * 3):   # far past the cap
+        text = seam().buy_text(
+            GUILD, ALICE, "ACME", journal.CORE, 100.0, None,
+            **{**PLAN, "thesis": "cheap"},            # refused every time
+        )
+        assert text.startswith(f"{journal.REFUSAL_PREFIX} — rule 1:")
+
+    assert league.usage_today(league_db, GUILD, ALICE).get("buy", 0) == 0
+    # And a good buy still goes through afterwards, at a fresh count.
+    good = seam().buy_text(GUILD, ALICE, "ACME", journal.CORE, 100.0, None, **PLAN)
+    assert "**Bought**" in good
+    assert f"used 1/{league.DAILY_LIMITS['buy']} today" in good
+
+
+def test_a_refused_sell_does_not_consume_the_allowance(league_db, offline) -> None:
+    league.join(league_db, GUILD, ALICE, "alice", on_date=d("2026-08-01"))
+    seam().buy_text(GUILD, ALICE, "ACME", journal.CORE, 100.0, None, **PLAN)
+
+    for _ in range(league.DAILY_LIMITS["sell"] * 3):
+        text = seam().sell_text(GUILD, ALICE, "ACME", 130.0, "", "won")
+        assert text.startswith(journal.REFUSAL_PREFIX)
+
+    assert league.usage_today(league_db, GUILD, ALICE).get("sell", 0) == 0
+    good = seam().sell_text(
+        GUILD, ALICE, "ACME", 130.0, "", "Re-rated on the print; thesis played out."
+    )
+    assert "**Sold**" in good
+    assert f"used 1/{league.DAILY_LIMITS['sell']} today" in good
+
+
+#: Distinct legal symbols — rule 4 refuses anything with a digit in it.
+SPARE_TICKERS = [
+    "AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH",
+    "III", "JJJ", "KKK", "LLL", "MMM", "NNN",
+]
+
+
+def clear_the_review_gate(conn, book: str = "m1") -> None:
+    """A fresh human review, so rule 6 does not stand in for the rate limit.
+
+    Once a member holds anything, rule 6 blocks the next buy until they review —
+    which is correct, and would otherwise mask what these tests are measuring.
+    """
+    journal.record_review(conn, book, "discord review", journal.today())
+
+
+def test_only_accepted_trades_increment_the_counter(league_db, offline) -> None:
+    """The counter tracks trades placed, not attempts made."""
+    league.join(league_db, GUILD, ALICE, "alice", on_date=d("2026-08-01"))
+    usage = lambda cmd: league.usage_today(league_db, GUILD, ALICE).get(cmd, 0)
+
+    assert usage("buy") == 0
+    seam().buy_text(GUILD, ALICE, "AAA", journal.CORE, 100.0, None,
+                    **{**PLAN, "shares": "300"})      # rule 3
+    assert usage("buy") == 0, "a refusal must leave the counter alone"
+
+    seam().buy_text(GUILD, ALICE, "AAA", journal.CORE, 100.0, None, **PLAN)
+    assert usage("buy") == 1, "an acceptance must increment it"
+
+    clear_the_review_gate(league_db)
+    seam().buy_text(GUILD, ALICE, "BBB", journal.CORE, 100.0, None, **PLAN)
+    assert usage("buy") == 2
+
+
+def test_the_cap_still_binds_on_accepted_buys(league_db, offline) -> None:
+    """Charging only on acceptance must not turn the cap off."""
+    league.join(league_db, GUILD, ALICE, "alice", on_date=d("2026-08-01"))
+    cap = league.DAILY_LIMITS["buy"]
+
+    for i in range(cap):
+        clear_the_review_gate(league_db)
+        text = seam().buy_text(
+            GUILD, ALICE, SPARE_TICKERS[i], journal.CORE, 10.0, None,
+            **{**PLAN, "shares": "5"},
+        )
+        assert "**Bought**" in text, f"buy {i + 1} of {cap} should be allowed: {text}"
+
+    clear_the_review_gate(league_db)
+    blocked = seam().buy_text(
+        GUILD, ALICE, "ZZZ", journal.CORE, 10.0, None, **{**PLAN, "shares": "5"}
+    )
+    assert "Daily limit reached for `/buy`" in blocked
+    assert league.usage_today(league_db, GUILD, ALICE)["buy"] == cap
+    assert journal.find_open(league_db, "m1", "ZZZ") is None
+
+
+def test_exactly_the_cap_many_trades_get_through(league_db, offline) -> None:
+    """Off-by-one guard: the cap is the number of accepted trades, not one fewer."""
+    league.join(league_db, GUILD, ALICE, "alice", on_date=d("2026-08-01"))
+    cap = league.DAILY_LIMITS["buy"]
+    accepted = 0
+    for i in range(cap + 4):
+        clear_the_review_gate(league_db)
+        if "**Bought**" in seam().buy_text(
+            GUILD, ALICE, SPARE_TICKERS[i], journal.CORE, 10.0, None,
+            **{**PLAN, "shares": "5"},
+        ):
+            accepted += 1
+    assert accepted == cap
+
+
+def test_research_still_charges_on_attempt(league_db, league_briefs) -> None:
+    """A /research miss generates a brief and spends money, so the attempt is the
+    billable event — unlike a buy, where the refusal is free."""
+    assert "research" not in league.CHARGE_ON_ACCEPTANCE
+    league.join(league_db, GUILD, ALICE, "alice", on_date=d("2026-08-01"))
+
+    # A member with no book still burns the attempt on /buy? No — but /research
+    # charges as soon as the command runs.
+    seam().research_text(GUILD, ALICE, "NOPE")
+    assert league.usage_today(league_db, GUILD, ALICE).get("research", 0) == 1
+
+
+def test_rate_status_reads_without_charging(league_db) -> None:
+    for _ in range(5):
+        verdict = league.rate_status(league_db, GUILD, ALICE, "buy")
+        assert verdict.used == 0
+        assert verdict.charged is False
+    assert league.usage_today(league_db, GUILD, ALICE) == {}
+
+
+def test_consume_rate_charges_exactly_once(league_db) -> None:
+    first = league.consume_rate(league_db, GUILD, ALICE, "buy")
+    assert first.used == 1 and first.charged is True
+    second = league.consume_rate(league_db, GUILD, ALICE, "buy")
+    assert second.used == 2
+    assert league.usage_today(league_db, GUILD, ALICE)["buy"] == 2
+
+
+def test_the_two_metering_styles_agree_on_where_the_cap_falls(league_db) -> None:
+    """charge-on-attempt uses <=, charge-on-acceptance uses < — both permit
+    exactly `limit` uses."""
+    for used in range(0, 12):
+        attempt = league.RateVerdict("buy", limit=8, used=used, charged=True)
+        # `used` under charge-on-attempt already includes the current attempt.
+        acceptance = league.RateVerdict("buy", limit=8, used=used - 1, charged=False)
+        assert attempt.allowed == acceptance.allowed, used
+
+
+def test_charge_on_acceptance_covers_exactly_buy_and_sell() -> None:
+    assert league.CHARGE_ON_ACCEPTANCE == {"buy", "sell"}
+    for command in league.CHARGE_ON_ACCEPTANCE:
+        assert command in league.DAILY_LIMITS
 
 
 def test_the_limit_message_names_the_cap_and_the_reset(league_db) -> None:

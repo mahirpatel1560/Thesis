@@ -176,9 +176,10 @@ class LeagueBot(discord.Client):
             member = league.find_member(conn, guild_id, member_id)
             if member is None:
                 return NOT_JOINED
-            verdict = league.check_rate(conn, guild_id, member_id, "buy")
-            if not verdict.allowed:
-                return verdict.message()
+            # Ask, don't charge: a refusal below costs nothing and teaches
+            # something, so only an accepted trade is metered.
+            if not league.rate_status(conn, guild_id, member_id, "buy").allowed:
+                return league.rate_status(conn, guild_id, member_id, "buy").message()
             try:
                 count = parse_number(shares, "shares")
                 fill = price if price else fetch_one_price(ticker)
@@ -193,6 +194,7 @@ class LeagueBot(discord.Client):
             except ValueError as exc:
                 return f"{journal.REFUSAL_PREFIX} — {exc}"
 
+            verdict = league.consume_rate(conn, guild_id, member_id, "buy")
             lines = [
                 f"**Bought** {count:g} {ticker.upper()} at {track.money(check.request.price)} "
                 f"— {track.money(check.cost)}, {check.position_pct:.1%} of your book "
@@ -219,9 +221,8 @@ class LeagueBot(discord.Client):
             member = league.find_member(conn, guild_id, member_id)
             if member is None:
                 return NOT_JOINED
-            verdict = league.check_rate(conn, guild_id, member_id, "sell")
-            if not verdict.allowed:
-                return verdict.message()
+            if not league.rate_status(conn, guild_id, member_id, "sell").allowed:
+                return league.rate_status(conn, guild_id, member_id, "sell").message()
             try:
                 count = parse_number(shares, "shares") if shares.strip() else None
                 fill = price if price else fetch_one_price(ticker)
@@ -234,6 +235,7 @@ class LeagueBot(discord.Client):
             except ValueError as exc:
                 return f"{journal.REFUSAL_PREFIX} — {exc}"
 
+            verdict = league.consume_rate(conn, guild_id, member_id, "sell")
             state = "closed" if not after.is_open else f"open with {after.shares:g} left"
             return (
                 f"**Sold** {ticker.upper()} at {track.money(fill)} — {state}. "
