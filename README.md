@@ -539,6 +539,89 @@ An order also cannot be placed on someone else's book: whatever book name the mo
 
 Fills work exactly as the Arena's do: an order fills at the open of the first session **after its own decision date**, settled at the start of the next cycle, with open and pending exposure counted together against the caps.
 
+### The three-second contract
+
+Discord throws away an interaction that has not been **acknowledged within three
+seconds** and shows the member *"The application did not respond."* Nothing here is
+reliably that fast — a screen touches ~490 tickers, a brief calls a model, and even
+`/join` writes to SQLite, which waits on the default five-second busy timeout if a
+cycle holds the write lock. So every handler acknowledges first and answers later.
+
+Five commands go through `bot.run_command`, whose **first statement** is
+`interaction.response.defer` — before any model call, network request or database
+work. It then runs the synchronous league seam in a worker thread (on the event loop
+it would stall the heartbeat for every other member) and replies with `followup.send`,
+split to Discord's 2,000-character limit.
+
+`/buy` and `/sell` are the deliberate exception. Opening a modal **is** the
+acknowledgement, and deferring first makes `send_modal` illegal — so their deferral
+lives in the modal's `on_submit`, which is where the slow work is. Nothing is exempt;
+the acknowledgement just moves.
+
+The only thing allowed before an acknowledgement is a plain attribute read —
+`interaction.guild_id`, a permission bit — never a call that can block.
+
+`test_league.py` enforces this against the AST of every registered handler: it walks
+each one in **evaluation order** (an argument evaluates before the call it sits in, so
+`run_command(interaction, seam, fetch_marks(...))` really does fetch first) and fails
+on any blocking call reached on a path that has not acknowledged. Three deliberately
+broken handlers prove the check has teeth, and the command list is pinned, so an
+eighth command fails the suite until it is covered.
+
+### Nothing fails silently
+
+An exception raised *before* the acknowledgement is indistinguishable from a hang
+from the outside — which is how the first live `/cycle` failure presented. So
+`LeagueTree.on_error` and each modal's `on_error` catch everything, log the traceback,
+and tell the member what broke, choosing `response` or `followup` depending on whether
+the interaction was already acknowledged. The message names the exception type and is
+worded so it can never be mistaken for a rule refusal: a refusal is the system
+working, and always names its rule.
+
+### Registration is per guild
+
+The first live test found `/research` missing from the slash-command picker — typing
+it posted as plain text. It was on the command tree the whole time. The problem was
+scope: `tree.sync()` with no guild registers **globally**, and a global registration
+can take up to an hour to reach a member's client. `/join` and `/cycle`, registered by
+an earlier run, had propagated; the four newer commands had not.
+
+So commands sync **per guild**, which Discord applies immediately. Leagues are
+per-server anyway, so guild scope is also the honest scope.
+
+The sync happens in `on_ready`, not `setup_hook` — `setup_hook` runs inside `login`,
+before the gateway connects, so `self.guilds` is empty there and a per-guild loop
+would register nothing at all. A test asserts the sync is *not* called from
+`setup_hook`, because that mistake logs one error and otherwise looks fine.
+`on_ready` can replay on a reconnect, so the sync is guarded to run once, and
+`on_guild_join` syncs a server added later rather than making it wait for a restart.
+
+A live start prints exactly what Discord accepted:
+
+```
+2026-08-12 23:03:57 INFO     thesis.bot  connected as ThesisLeague#4242 (id 1399…)
+2026-08-12 23:03:57 INFO     thesis.bot  in 1 guild(s): UIUC Investing (1122…)
+2026-08-12 23:03:57 INFO     thesis.bot  commands Discord accepted for UIUC Investing (1122…) — 7: buy, cycle, join, research, review, sell, standings
+```
+
+A command defined here but not accepted logs `ERROR` and says it will not appear in
+the picker; one accepted but unknown here logs `WARNING`; a failed sync logs the
+traceback and says Discord still holds the previous set; no guilds at all is an
+`ERROR`, since guild-scoped commands with no guilds can appear nowhere.
+
+Leftover **global** registrations from an earlier run are reported, not deleted —
+clearing an application's global commands affects every server the app is in, which
+is not something a startup should do silently. If a command ever appears twice in a
+picker, that warning line names it and gives the two calls that remove it.
+
+Two tests keep the registered set honest, and both read **PRODUCT.md's v1 scope**
+rather than restating it: one fails if a command in that scope is not registered, the
+other if something registered is not in the scope. A third checks every name,
+description, parameter and choice against Discord's length limits, because one
+oversized description makes Discord reject the whole sync payload — which presents as
+every new command missing, the same symptom from a cause a registration test alone
+would not find.
+
 ---
 
 ## The landing page — `site/`

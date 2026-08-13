@@ -8,10 +8,15 @@ fetchers are injected.
 from __future__ import annotations
 
 import ast
+import asyncio
 import datetime as dt
 import json
+import logging
+import re
+import textwrap
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 import discord
 import pandas as pd
@@ -1445,3 +1450,734 @@ def test_standings_seam_renders_without_a_discord_connection(league_db) -> None:
     text = client.standings_text(GUILD, "Test Server")
     assert "Standings — Test Server" in text
     assert "alice" in text
+
+
+# ================================ the three-second interaction contract
+#
+# Discord discards an interaction that has not been acknowledged within three
+# seconds and tells the member "The application did not respond." Every handler
+# therefore acknowledges before it works. That is a property of the source, so —
+# in the style of the wrapper-guarantee tests above — it is checked against the
+# source rather than hoped for.
+
+BOT_TREE = ast.parse(Path(bot.__file__).read_text(encoding="utf-8"))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+#: Calls that acknowledge the interaction. `run_command` counts because its own
+#: first statement is the deferral, which `test_run_command_defers_first` pins
+#: independently — so this is a shorthand, not a circular argument.
+ACK_CALLS = frozenset(
+    {"defer", "send_message", "send_modal", "in_a_server_only", "run_command"}
+)
+
+#: Modules where essentially every function reaches SQLite, the network, or a
+#: model. None of them may be called before the acknowledgement.
+#:
+#: This is a denylist, and the honest limitation of these tests: a *newly
+#: invented* way to block — a module nobody has imported yet — would not be
+#: caught. It covers everything this package can currently reach, and the last
+#: three are here to catch the obvious ways a future handler might block without
+#: going through the league at all.
+SLOW_MODULES = frozenset(
+    {
+        "league", "journal", "arena", "track", "screen", "universe", "market",
+        "brief", "lint", "pdf", "edgar", "pricecache",
+        "time", "requests", "httpx", "urllib", "sqlite3", "yfinance", "anthropic",
+    }
+)
+
+#: Slow helpers defined in bot.py itself, plus plain file access.
+SLOW_HELPERS = frozenset(
+    {"fetch_marks", "fetch_one_price", "cycle_tickers", "build_context", "open"}
+)
+
+#: The seven commands the league exposes. Listed so that adding an eighth fails
+#: this file until it is covered, rather than slipping past unchecked.
+EXPECTED_COMMANDS = frozenset(
+    {"join", "standings", "buy", "sell", "review", "research", "cycle"}
+)
+
+
+def slow_call(call: ast.Call) -> str | None:
+    """The name of the blocking thing this call reaches, if it is one."""
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id if func.id in SLOW_HELPERS else None
+    if isinstance(func, ast.Attribute):
+        if func.attr.endswith("_text"):  # a synchronous seam onto league.py
+            return func.attr
+        if func.attr == "to_thread":
+            return "asyncio.to_thread"
+        if isinstance(func.value, ast.Name) and func.value.id in SLOW_MODULES:
+            return f"{func.value.id}.{func.attr}"
+    return None
+
+
+def is_ack(call: ast.Call) -> bool:
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id in ACK_CALLS
+    return isinstance(func, ast.Attribute) and func.attr in ACK_CALLS
+
+
+def calls_in_evaluation_order(node: ast.AST):
+    """Nested calls first, then the call containing them.
+
+    Evaluation order, not source order, and the difference matters: in
+    `run_command(interaction, seam, fetch_marks(...))` the fetch runs *before*
+    the deferral, so a left-to-right reading would clear a real violation.
+    """
+    for child in ast.iter_child_nodes(node):
+        yield from calls_in_evaluation_order(child)
+    if isinstance(node, ast.Call):
+        yield node
+
+
+def _scan(where: str, node: ast.AST, acked: bool, found: list[str]) -> bool:
+    for call in calls_in_evaluation_order(node):
+        reached = slow_call(call)
+        if reached and not acked:
+            found.append(
+                f"{where} line {call.lineno}: calls {reached} before the "
+                "interaction is acknowledged"
+            )
+        if is_ack(call):
+            acked = True
+    return acked
+
+
+def violations(where: str, body: list[ast.stmt], acked: bool = False) -> list[str]:
+    """Every place `body` does blocking work on a path that has not acknowledged.
+
+    Branches are treated conservatively: an acknowledgement inside an `if` does
+    not count for the fall-through path, because the branch may not be taken.
+    """
+    found: list[str] = []
+    for statement in body:
+        if isinstance(statement, ast.If):
+            branch = _scan(where, statement.test, acked, found)
+            found += violations(where, statement.body, branch)
+            found += violations(where, statement.orelse, branch)
+            continue
+        acked = _scan(where, statement, acked, found)
+    return found
+
+
+def command_handlers() -> dict[str, ast.AsyncFunctionDef]:
+    """Every `@tree.command(...)` handler in bot.py, keyed by its Discord name."""
+    found: dict[str, ast.AsyncFunctionDef] = {}
+    for node in ast.walk(BOT_TREE):
+        if not isinstance(node, ast.AsyncFunctionDef):
+            continue
+        for decorator in node.decorator_list:
+            if (
+                isinstance(decorator, ast.Call)
+                and isinstance(decorator.func, ast.Attribute)
+                and decorator.func.attr == "command"
+            ):
+                named = [
+                    kw.value.value for kw in decorator.keywords
+                    if kw.arg == "name" and isinstance(kw.value, ast.Constant)
+                ]
+                found[named[0] if named else node.name] = node
+    return found
+
+
+def modal_submits() -> dict[str, ast.AsyncFunctionDef]:
+    """Each modal's `on_submit` — where /buy's and /sell's slow work actually is."""
+    return {
+        node.name: item
+        for node in ast.walk(BOT_TREE)
+        if isinstance(node, ast.ClassDef) and node.name.endswith("Modal")
+        for item in node.body
+        if isinstance(item, ast.AsyncFunctionDef) and item.name == "on_submit"
+    }
+
+
+def test_every_registered_command_is_covered_by_this_contract() -> None:
+    """A new command must be added to EXPECTED_COMMANDS to get past this file."""
+    assert set(command_handlers()) == set(EXPECTED_COMMANDS)
+
+
+def test_a_real_client_still_registers_all_seven_commands() -> None:
+    """Built for real, offline — no token, no gateway, no network.
+
+    Everything else here reads the source. This one proves the source actually
+    assembles: that the decorators still compose, that the seven commands keep
+    their options, and that the tree in use is the one that handles errors. A
+    decorator-ordering mistake shows up here and nowhere else.
+    """
+    client = bot.LeagueBot()
+    assert isinstance(client.tree, bot.LeagueTree)
+    assert isinstance(client.tree, discord.app_commands.CommandTree)
+    assert sorted(c.name for c in client.tree.get_commands()) == sorted(
+        EXPECTED_COMMANDS
+    )
+
+    buy = next(c for c in client.tree.get_commands() if c.name == "buy")
+    assert [p.name for p in buy.parameters] == ["ticker", "bucket", "price", "stop"]
+    assert [p.required for p in buy.parameters] == [True, False, False, False]
+
+    assert type(client.tree).on_error is not discord.app_commands.CommandTree.on_error
+    for modal in (bot.BuyModal, bot.SellModal):
+        assert "on_error" in modal.__dict__, f"{modal.__name__} would fail silently"
+
+
+@pytest.mark.parametrize("name", sorted(EXPECTED_COMMANDS))
+def test_no_command_works_before_acknowledging_the_interaction(name: str) -> None:
+    handler = command_handlers()[name]
+    assert violations(f"/{name}", handler.body) == []
+
+
+@pytest.mark.parametrize("modal", ["BuyModal", "SellModal"])
+def test_no_modal_submit_works_before_acknowledging_the_interaction(modal: str) -> None:
+    assert violations(f"{modal}.on_submit", modal_submits()[modal].body) == []
+
+
+def test_run_command_defers_first() -> None:
+    """The single place the ordering lives, so it is asserted literally."""
+    function = next(
+        node for node in ast.walk(BOT_TREE)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "run_command"
+    )
+    body = [
+        statement for statement in function.body
+        if not (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+        )
+    ]  # drop the docstring
+    first = body[0]
+    assert isinstance(first, ast.Expr) and isinstance(first.value, ast.Await)
+    call = first.value.value
+    assert isinstance(call, ast.Call)
+    assert isinstance(call.func, ast.Attribute) and call.func.attr == "defer", (
+        "run_command must defer before anything else — it is the only thing "
+        "standing between a slow command and Discord's three-second window"
+    )
+
+
+def called_names(node: ast.AST) -> set[str]:
+    """Bare function names called anywhere inside `node`."""
+    return {
+        call.func.id for call in ast.walk(node)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    }
+
+
+def called_attrs(node: ast.AST) -> set[str]:
+    return {
+        call.func.attr for call in ast.walk(node)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+    }
+
+
+def test_only_the_modal_openers_skip_the_deferral() -> None:
+    """/buy and /sell may not defer: opening a modal *is* the acknowledgement.
+
+    Deferring first would make `send_modal` illegal, so the exception is real —
+    but it is exactly two commands wide, and their deferral moves to `on_submit`.
+    """
+    handlers = command_handlers()
+    for name in ("buy", "sell"):
+        assert "send_modal" in called_attrs(handlers[name]), (
+            f"/{name} must open its modal to acknowledge"
+        )
+        assert "run_command" not in called_names(handlers[name]), (
+            f"/{name} cannot defer — send_modal must be the initial response"
+        )
+
+    for name in sorted(EXPECTED_COMMANDS - {"buy", "sell"}):
+        assert "run_command" in called_names(handlers[name]), (
+            f"/{name} must go through run_command"
+        )
+
+    # And both modals defer, so nothing is actually exempt from the contract.
+    for modal in ("BuyModal", "SellModal"):
+        assert "run_command" in called_names(modal_submits()[modal])
+
+
+GOOD_HANDLER = """
+async def handler(interaction):
+    if interaction.guild_id is None:
+        await in_a_server_only(interaction)
+        return
+    await run_command(interaction, bot.review_text, interaction.guild_id)
+"""
+
+LATE_DEFER = """
+async def handler(interaction):
+    text = await asyncio.to_thread(bot.run_cycle_text, interaction.guild_id)
+    await interaction.response.defer()
+    await interaction.followup.send(text)
+"""
+
+SLOW_ARGUMENT = """
+async def handler(interaction):
+    await run_command(interaction, bot.buy_text, fetch_marks(["SPY"]))
+"""
+
+UNGUARDED_BRANCH = """
+async def handler(interaction):
+    if interaction.guild_id is None:
+        await interaction.response.send_message("no")
+    text = await asyncio.to_thread(bot.join_text, interaction.guild_id)
+"""
+
+
+def parse_handler(source: str) -> list[ast.stmt]:
+    return ast.parse(textwrap.dedent(source)).body[0].body
+
+
+def test_the_ordering_check_passes_a_correct_handler() -> None:
+    assert violations("good", parse_handler(GOOD_HANDLER)) == []
+
+
+@pytest.mark.parametrize(
+    "label, source",
+    [
+        ("work before the deferral", LATE_DEFER),
+        ("slow work in an argument", SLOW_ARGUMENT),
+        ("a branch that falls through unacknowledged", UNGUARDED_BRANCH),
+    ],
+)
+def test_the_ordering_check_has_teeth(label: str, source: str) -> None:
+    """Each of these is a way the timeout comes back. The checker must see all three.
+
+    `SLOW_ARGUMENT` is the subtle one: the deferral is textually first but the
+    argument is evaluated before the call, so the fetch really does run first.
+    """
+    assert violations("bad", parse_handler(source)), f"missed: {label}"
+
+
+# ---------------------------------------------------- the ordering, in behaviour
+
+class FakeResponse:
+    """Records what a handler did to the interaction, in order."""
+
+    def __init__(self, log: list[str]) -> None:
+        self._log = log
+        self._done = False
+
+    def is_done(self) -> bool:
+        return self._done
+
+    async def defer(self, **kwargs: object) -> None:
+        self._log.append("defer")
+        self._done = True
+
+    async def send_message(self, text: str, **kwargs: object) -> None:
+        self._log.append(f"send_message:{text}")
+        self._done = True
+
+    async def send_modal(self, modal: object) -> None:
+        self._log.append(f"send_modal:{type(modal).__name__}")
+        self._done = True
+
+
+class FakeFollowup:
+    def __init__(self, log: list[str]) -> None:
+        self._log = log
+
+    async def send(self, text: str, **kwargs: object) -> None:
+        self._log.append(f"followup:{text}")
+
+
+class FakeInteraction:
+    """Enough of a discord.Interaction to prove ordering, with no Discord."""
+
+    def __init__(self, guild_id: int | None = GUILD, manage_guild: bool = True) -> None:
+        self.calls: list[str] = []
+        self.response = FakeResponse(self.calls)
+        self.followup = FakeFollowup(self.calls)
+        self.guild_id = guild_id
+        self.guild = SimpleNamespace(name="Test Server")
+        self.user = SimpleNamespace(
+            id=ALICE, display_name="alice",
+            guild_permissions=SimpleNamespace(manage_guild=manage_guild),
+        )
+        self.command = SimpleNamespace(name="cycle")
+
+
+def test_run_command_defers_before_the_work_runs() -> None:
+    """The ordering the AST asserts, observed end to end."""
+    interaction = FakeInteraction()
+
+    def work() -> str:
+        interaction.calls.append("work")
+        return "done"
+
+    asyncio.run(bot.run_command(interaction, work))
+    assert interaction.calls == ["defer", "work", "followup:done"]
+
+
+def test_a_long_reply_arrives_as_several_followups() -> None:
+    interaction = FakeInteraction()
+    asyncio.run(bot.run_command(interaction, lambda: "x\n" * 1500))
+    assert interaction.calls[0] == "defer"
+    assert len(interaction.calls) > 2, "a 3,000-character reply needs splitting"
+
+
+def test_a_dm_is_refused_without_touching_the_database() -> None:
+    interaction = FakeInteraction(guild_id=None)
+    asyncio.run(bot.in_a_server_only(interaction))
+    assert interaction.calls == [f"send_message:{bot.IN_A_SERVER_ONLY}"]
+
+
+def test_only_a_server_manager_may_run_a_cycle() -> None:
+    assert bot.may_run_a_cycle(FakeInteraction(manage_guild=True).user)
+    assert not bot.may_run_a_cycle(FakeInteraction(manage_guild=False).user)
+    assert not bot.may_run_a_cycle(SimpleNamespace()), "a DM author has no permissions"
+
+
+# --------------------------------------------------------- nothing fails silently
+
+def tree_only() -> bot.LeagueTree:
+    """A LeagueTree with no client — `on_error` needs nothing else."""
+    return bot.LeagueTree.__new__(bot.LeagueTree)
+
+
+def raised(error: BaseException) -> BaseException:
+    """The same exception, but actually raised, so it carries a traceback.
+
+    discord.py hands `on_error` an exception that has been through a `raise`. One
+    built by calling its constructor has an empty `__traceback__` and logs as a
+    bare one-liner, so testing with that would quietly stop proving the traceback
+    reaches the log at all.
+    """
+    try:
+        raise error
+    except BaseException as caught:  # noqa: BLE001 - handing it straight back
+        return caught
+
+
+def test_a_crash_reaches_the_member_instead_of_timing_out(caplog) -> None:
+    interaction = FakeInteraction()
+    with caplog.at_level(logging.ERROR, logger="thesis.bot"):
+        asyncio.run(
+            tree_only().on_error(interaction, raised(RuntimeError("yfinance died")))
+        )
+
+    said = " ".join(interaction.calls)
+    assert "yfinance died" in said, "the member is told what broke"
+    assert "RuntimeError" in said
+    assert "/cycle" in said
+    assert "Traceback" in caplog.text, "the log carries the traceback"
+
+
+def test_a_crash_is_never_mistakable_for_a_rule_refusal() -> None:
+    """A refusal is the system working; a crash is not. They must not read alike."""
+    text = bot.failure_text("buy", RuntimeError("boom"))
+    assert not text.startswith(journal.REFUSAL_PREFIX)
+    assert "not a refusal" in text
+
+
+def test_a_crash_before_the_acknowledgement_still_gets_a_reply() -> None:
+    """The case that produced "did not respond": nothing had answered Discord yet."""
+    interaction = FakeInteraction()
+    asyncio.run(
+        tree_only().on_error(interaction, raised(RuntimeError("permission lookup")))
+    )
+    assert interaction.calls[0].startswith("send_message:")
+
+
+def test_a_crash_after_the_acknowledgement_replies_as_a_followup() -> None:
+    interaction = FakeInteraction()
+    asyncio.run(interaction.response.defer())
+    asyncio.run(tree_only().on_error(interaction, raised(RuntimeError("mid-flight"))))
+    assert interaction.calls[0] == "defer"
+    assert interaction.calls[1].startswith("followup:")
+
+
+def test_the_discord_wrapper_exception_is_unwrapped_for_the_member() -> None:
+    """discord.py wraps a callback error; the member wants the cause, not the wrapper."""
+    inner = ValueError("no session data for ACME")
+    wrapped = SimpleNamespace(original=inner)
+    assert "no session data for ACME" in bot.failure_text("research", wrapped)
+    assert "ValueError" in bot.failure_text("research", wrapped)
+
+
+def test_a_dead_interaction_is_logged_rather_than_raised(caplog) -> None:
+    """15 minutes on, the token is gone. That must not become a second exception."""
+    interaction = FakeInteraction()
+
+    async def refuse(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("404 Not Found (error code: 10015): Unknown Webhook")
+
+    interaction.response.send_message = refuse
+    with caplog.at_level(logging.ERROR, logger="thesis.bot"):
+        asyncio.run(bot.report_failure(interaction, "cycle", RuntimeError("original")))
+    assert "could not deliver the failure notice" in caplog.text
+
+
+@pytest.mark.parametrize("modal, command", [("BuyModal", "buy"), ("SellModal", "sell")])
+def test_a_modal_crash_reaches_the_member(modal: str, command: str, caplog) -> None:
+    instance = getattr(bot, modal).__new__(getattr(bot, modal))
+    interaction = FakeInteraction()
+    with caplog.at_level(logging.ERROR, logger="thesis.bot"):
+        asyncio.run(instance.on_error(interaction, raised(RuntimeError("modal broke"))))
+    assert "modal broke" in " ".join(interaction.calls)
+    assert f"/{command} modal submit failed" in caplog.text
+    assert "Traceback" in caplog.text
+
+
+# ------------------------------------------------------------- startup visibility
+
+GUILD_NAME = "UIUC Investing"
+GUILD_ROW = SimpleNamespace(name=GUILD_NAME, id=777)
+
+
+class FakeTree:
+    """Records what was synced where, with no Discord connection.
+
+    `synced=None` makes `sync` raise, standing in for a rate limit or a payload
+    Discord rejects.
+    """
+
+    def __init__(
+        self,
+        defined: list[str],
+        synced: list[str] | None = None,
+        globals_left: tuple[str, ...] = (),
+    ) -> None:
+        self._defined = defined
+        self._synced = defined if synced is None else synced
+        self._globals_left = globals_left
+        self.copied_to: list[int] = []
+        self.synced_scopes: list[int | None] = []
+
+    def get_commands(self, **kwargs: object) -> list[object]:
+        return [SimpleNamespace(name=name) for name in self._defined]
+
+    def copy_global_to(self, *, guild: object) -> None:
+        self.copied_to.append(guild.id)
+
+    async def sync(self, *, guild: object | None = None) -> list[object]:
+        self.synced_scopes.append(None if guild is None else guild.id)
+        if self._synced is None:
+            raise RuntimeError("429 Too Many Requests")
+        return [SimpleNamespace(name=name) for name in self._synced]
+
+    async def fetch_commands(self, *, guild: object | None = None) -> list[object]:
+        return [SimpleNamespace(name=name) for name in self._globals_left]
+
+
+def bot_with(tree: FakeTree, guilds: list[object] | None = None) -> bot.LeagueBot:
+    """A LeagueBot with no gateway. `guilds` shadows discord.Client's property."""
+    present = [GUILD_ROW] if guilds is None else guilds
+
+    class Offline(bot.LeagueBot):
+        user = "ThesisLeague#4242"
+
+        def __init__(self) -> None:  # no token, no connection
+            pass
+
+    Offline.guilds = present  # a plain attribute wins over the base property
+    client = Offline()
+    client.tree = tree
+    return client
+
+
+def test_startup_syncs_per_guild_rather_than_globally() -> None:
+    """The fix for /research: a guild sync lands at once, a global one may not."""
+    tree = FakeTree(sorted(EXPECTED_COMMANDS))
+    asyncio.run(bot_with(tree).sync_commands())
+
+    assert tree.copied_to == [GUILD_ROW.id], "the global set must be copied in"
+    assert GUILD_ROW.id in tree.synced_scopes, "the guild itself was never synced"
+
+
+def test_every_guild_the_bot_is_in_gets_the_commands() -> None:
+    rooms = [SimpleNamespace(name="One", id=1), SimpleNamespace(name="Two", id=2)]
+    tree = FakeTree(sorted(EXPECTED_COMMANDS))
+    asyncio.run(bot_with(tree, guilds=rooms).sync_commands())
+    assert tree.copied_to == [1, 2]
+    assert [scope for scope in tree.synced_scopes if scope is not None] == [1, 2]
+
+
+def test_startup_logs_the_names_discord_accepted(caplog) -> None:
+    """"Log the exact list of command names Discord accepted after sync."""
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(bot_with(FakeTree(sorted(EXPECTED_COMMANDS))).sync_commands())
+
+    assert f"commands Discord accepted for {GUILD_NAME} (777) — 7:" in caplog.text
+    for name in EXPECTED_COMMANDS:
+        assert name in caplog.text
+    assert "research" in caplog.text, "the command that started all this"
+
+
+def test_a_command_that_did_not_register_is_an_error_in_the_console(caplog) -> None:
+    """The failure mode being instrumented: defined here, absent at Discord."""
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(
+            bot_with(FakeTree(["join", "research"], synced=["join"])).sync_commands()
+        )
+    assert "NOT accepted" in caplog.text
+    assert "research" in caplog.text
+    assert "will not appear in the picker" in caplog.text
+    assert any(record.levelno == logging.ERROR for record in caplog.records)
+
+
+def test_a_stale_registration_is_called_out(caplog) -> None:
+    """A command Discord still offers but this process cannot serve — a hang."""
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(
+            bot_with(FakeTree(["join"], synced=["join", "gone"])).sync_commands()
+        )
+    assert "not defined here" in caplog.text
+    assert "gone" in caplog.text
+
+
+def test_a_failed_sync_says_so_loudly(caplog) -> None:
+    tree = FakeTree(["join", "cycle"])
+    tree._synced = None
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(bot_with(tree).sync_commands())
+    assert "command sync FAILED" in caplog.text
+    assert GUILD_NAME in caplog.text
+    assert "Traceback" in caplog.text
+
+
+def test_leftover_global_registrations_are_named(caplog) -> None:
+    """If a command ever shows twice in the picker, the console says why."""
+    tree = FakeTree(sorted(EXPECTED_COMMANDS), globals_left=("join", "cycle"))
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(bot_with(tree).sync_commands())
+    assert "stale GLOBAL command registration(s)" in caplog.text
+    assert "cycle, join" in caplog.text  # sorted, so the log reads the same each run
+
+
+def test_nothing_global_is_deleted_behind_the_users_back() -> None:
+    """Clearing an app's global commands hits every server it is in.
+
+    So it is reported and not done. `sync(guild=None)` is the global write, and it
+    must never be issued by a startup that was only asked to register per guild.
+    """
+    tree = FakeTree(sorted(EXPECTED_COMMANDS), globals_left=("join",))
+    asyncio.run(bot_with(tree).sync_commands())
+    assert None not in tree.synced_scopes, "a global sync would rewrite every server"
+
+
+def test_a_bot_in_no_guilds_is_an_error_not_a_silent_no_op(caplog) -> None:
+    """With guild-scoped commands and no guilds, nothing can appear anywhere."""
+    tree = FakeTree(sorted(EXPECTED_COMMANDS))
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(bot_with(tree, guilds=[]).sync_commands())
+    assert "no guilds to register commands in" in caplog.text
+    assert "applications.commands" in caplog.text
+    assert any(record.levelno == logging.ERROR for record in caplog.records)
+    assert tree.synced_scopes == [], "nothing to sync, so nothing was attempted"
+
+
+def test_a_guild_joined_later_is_synced_at_once(caplog) -> None:
+    """Otherwise a new server waits for a restart before any command works."""
+    tree = FakeTree(sorted(EXPECTED_COMMANDS))
+    newcomer = SimpleNamespace(name="Late Joiner", id=4242)
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(bot_with(tree).on_guild_join(newcomer))
+    assert tree.copied_to == [4242]
+    assert tree.synced_scopes == [4242]
+    assert "Late Joiner" in caplog.text
+
+
+def test_startup_logs_who_we_are_and_where(caplog) -> None:
+    client = bot_with(FakeTree(sorted(EXPECTED_COMMANDS)))
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(client.on_ready())
+    assert "ThesisLeague#4242" in caplog.text
+    assert f"{GUILD_NAME} (777)" in caplog.text
+    assert "in 1 guild(s)" in caplog.text
+
+
+def test_on_ready_syncs_once_however_often_it_fires(caplog) -> None:
+    """A reconnect replays on_ready; re-syncing would burn the command rate limit."""
+    tree = FakeTree(sorted(EXPECTED_COMMANDS))
+    client = bot_with(tree)
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(client.on_ready())
+        asyncio.run(client.on_ready())
+    assert tree.synced_scopes == [GUILD_ROW.id], "synced twice on one connection"
+
+
+def test_commands_are_not_synced_in_setup_hook() -> None:
+    """`setup_hook` runs before the gateway, so `self.guilds` is empty there.
+
+    Syncing from it is why a per-guild sync silently registers nothing — the loop
+    has no guilds to iterate. Asserted against the source, since the failure is
+    invisible at runtime: it logs an error and moves on.
+    """
+    hook = next(
+        node for node in ast.walk(BOT_TREE)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "setup_hook"
+    )
+    assert "sync_commands" not in called_attrs(hook) | called_names(hook)
+
+    ready = next(
+        node for node in ast.walk(BOT_TREE)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "on_ready"
+    )
+    assert "sync_commands" in called_attrs(ready), (
+        "the sync has to happen where the guild list exists"
+    )
+
+
+# --------------------------------------------- registration vs PRODUCT.md's scope
+
+def v1_commands() -> set[str]:
+    """The slash commands PRODUCT.md's v1 scope says ship, read from the file.
+
+    Taken from the document rather than restated here, so the two cannot drift:
+    if a command is added to the scope and never registered — which is the whole
+    bug this came from — the suite fails instead of a member finding out.
+    """
+    product = (REPO_ROOT / "PRODUCT.md").read_text(encoding="utf-8")
+    scope = product.split("## v1 scope", 1)
+    assert len(scope) == 2, "PRODUCT.md no longer has a v1 scope section"
+    listed = scope[1].split("**Explicitly deferred:**", 1)[0]
+    return set(re.findall(r"`/([a-z][a-z0-9_-]*)", listed))
+
+
+def test_product_md_still_lists_the_commands_we_think_it_does() -> None:
+    """Guards the parser itself: a reformat must not quietly empty the set."""
+    assert v1_commands() == set(EXPECTED_COMMANDS)
+
+
+def test_every_command_in_the_v1_scope_is_actually_registered() -> None:
+    """The headline failure: /research existed, worked, and was never in a picker.
+
+    Built for real rather than read from source, because "implemented" and
+    "registered on the tree" are different things and only the tree decides
+    whether Discord is ever told about a command.
+    """
+    registered = {c.name for c in bot.LeagueBot().tree.get_commands()}
+    missing = sorted(v1_commands() - registered)
+    assert missing == [], f"in PRODUCT.md's v1 scope but never registered: {missing}"
+
+
+def test_nothing_is_registered_that_the_scope_does_not_claim() -> None:
+    registered = {c.name for c in bot.LeagueBot().tree.get_commands()}
+    assert sorted(registered - v1_commands()) == []
+
+
+def test_research_is_registered() -> None:
+    """Named on its own, because this is the one that was missing."""
+    registered = {c.name for c in bot.LeagueBot().tree.get_commands()}
+    assert "research" in registered
+
+
+def test_every_command_fits_what_discord_will_accept() -> None:
+    """One oversized description makes Discord reject the whole sync payload.
+
+    Which would present as *every* new command missing from the picker — the same
+    symptom, from a cause a registration test alone would not find.
+    """
+    for command in bot.LeagueBot().tree.get_commands():
+        assert re.fullmatch(r"[a-z0-9_-]{1,32}", command.name), command.name
+        assert 1 <= len(command.description) <= 100, command.name
+        for parameter in command.parameters:
+            assert 1 <= len(parameter.description) <= 100, (
+                f"/{command.name} {parameter.name}"
+            )
+            assert re.fullmatch(r"[a-z0-9_-]{1,32}", parameter.name), parameter.name
+            for choice in getattr(parameter, "choices", ()):
+                assert 1 <= len(choice.name) <= 100, choice.name

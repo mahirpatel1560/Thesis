@@ -10,6 +10,45 @@ Every order it causes travels `league.run_cycle` -> `arena.apply_decision` ->
 Tests assert both halves of that: that the bot module imports no journal-mutating
 function, and that an order the CLI would refuse is refused identically here, with
 the same rule number.
+
+## The three-second contract
+
+Discord discards an interaction that has not been acknowledged within **three
+seconds** and shows the member *"The application did not respond."* Nothing this
+bot does is reliably that fast: a screen touches ~490 tickers, a brief calls a
+model, and even a bare `/join` writes to SQLite, which will sit behind the
+default five-second busy timeout if a cycle holds the write lock. So every
+handler acknowledges first and delivers later:
+
+* slow commands go through `run_command`, whose **first statement** is
+  `interaction.response.defer` — before any model call, network request or
+  database work — and which then does the work off the event loop and replies
+  with `followup.send`;
+* `/buy` and `/sell` are the exception, and deliberately so: opening a modal *is*
+  the acknowledgement, and deferring first would make `send_modal` illegal. Their
+  deferral happens in the modal's `on_submit`, which is where the slow work is;
+* the only thing permitted before the acknowledgement is a plain attribute read
+  — `interaction.guild_id`, a permission bit — never a call that can block.
+
+`test_league.py` enforces this against the AST of every registered handler, so a
+command added later cannot quietly reintroduce the timeout.
+
+Nothing fails silently either: `LeagueTree.on_error` and each modal's `on_error`
+log the traceback and tell the member something broke, because an exception
+raised *before* the acknowledgement is indistinguishable from a hang from the
+outside.
+
+## Registration
+
+Commands are synced **per guild**, in `on_ready` rather than `setup_hook`, because
+`setup_hook` runs before the gateway connects and the guild list is empty there.
+Guild registration is immediate; a global one can take up to an hour to reach a
+member's client, and until it does the command is absent from their picker and
+typing it posts as plain text. That is how `/research` presented on the first live
+test while `/join` and `/cycle` — registered by an earlier run, already propagated
+— worked. The console then logs the exact names Discord accepted, per guild, and
+`test_league.py` checks the registered set against PRODUCT.md's v1 scope so an
+implemented-but-unregistered command fails the suite.
 """
 
 from __future__ import annotations
@@ -59,7 +98,11 @@ def fetch_marks(tickers: list[str]) -> dict[str, float]:
 # --------------------------------------------------------------------- the bot
 
 class LeagueBot(discord.Client):
-    """Discord client with the three league commands and the weekly loop."""
+    """Discord client with the seven league commands and the weekly loop."""
+
+    #: Set once `on_ready` has synced. A class attribute so an instance built for
+    #: a test without `__init__` reads a sane default.
+    _commands_synced: bool = False
 
     def __init__(
         self,
@@ -69,14 +112,120 @@ class LeagueBot(discord.Client):
     ) -> None:
         intents = kwargs.pop("intents", discord.Intents.default())
         super().__init__(intents=intents, **kwargs)
-        self.tree = app_commands.CommandTree(self)
+        self.tree = LeagueTree(self)
         self._connect = connect
         self._client_factory = client_factory or _anthropic_client
         register_commands(self.tree, self)
 
     async def setup_hook(self) -> None:
-        await self.tree.sync()
+        # Commands are *not* synced here. `setup_hook` runs inside `login`, before
+        # the gateway connects, so `self.guilds` is still empty — and this bot
+        # syncs per guild. That moves to `on_ready`, which is the first point the
+        # guild list exists.
         self.loop.create_task(self._weekly_loop())
+
+    async def on_ready(self) -> None:
+        """Who we are, where we are, and what Discord accepted.
+
+        May fire more than once — a full re-IDENTIFY replays it — so the sync is
+        guarded. Re-syncing on every reconnect would spend the command rate limit
+        on nothing.
+        """
+        log.info("connected as %s (id %s)", self.user, getattr(self.user, "id", "?"))
+        guilds = list(self.guilds)
+        log.info(
+            "in %d guild(s): %s", len(guilds),
+            ", ".join(f"{g.name} ({g.id})" for g in guilds) or "none",
+        )
+        if not self._commands_synced:
+            self._commands_synced = True
+            await self.sync_commands()
+
+    async def on_guild_join(self, guild: Any) -> None:
+        """A guild added after startup gets its commands immediately, not next run."""
+        log.info("joined %s (%s) — registering commands", guild.name, guild.id)
+        await self.sync_one_guild(guild, self.defined_commands())
+
+    def defined_commands(self) -> list[str]:
+        return sorted(command.name for command in self.tree.get_commands())
+
+    async def sync_commands(self) -> None:
+        """Register the command set with each guild, and log what Discord accepted.
+
+        **Per guild, not globally**, and that is the fix for a real failure: a
+        global registration can take up to an hour to reach a member's client, and
+        until it does the command is simply absent from their picker — typing it
+        posts as plain text, which is exactly how `/research` presented while the
+        older `/join` and `/cycle`, registered by an earlier run, worked fine. A
+        guild registration is immediate. Leagues are per-server anyway, so guild
+        scope is also the honest scope for them.
+        """
+        defined = self.defined_commands()
+        guilds = list(self.guilds)
+        if not guilds:
+            log.error(
+                "no guilds to register commands in — nothing will appear in any "
+                "picker. Re-invite with both the bot and applications.commands "
+                "scopes. Commands defined here: %s", ", ".join(defined) or "none",
+            )
+            return
+
+        for guild in guilds:
+            await self.sync_one_guild(guild, defined)
+        await self.report_global_leftovers()
+
+    async def sync_one_guild(self, guild: Any, defined: list[str]) -> None:
+        """Copy the global set into one guild and push it. Instant, per Discord."""
+        self.tree.copy_global_to(guild=guild)
+        try:
+            accepted = await self.tree.sync(guild=guild)
+        except Exception:
+            log.exception(
+                "command sync FAILED for %s (%s) — Discord still holds whatever "
+                "the last successful sync left, so these may not resolve: %s",
+                guild.name, guild.id, ", ".join(defined) or "none",
+            )
+            return
+
+        names = sorted(command.name for command in accepted)
+        log.info(
+            "commands Discord accepted for %s (%s) — %d: %s",
+            guild.name, guild.id, len(names), ", ".join(names) or "none",
+        )
+        if missing := [name for name in defined if name not in names]:
+            log.error(
+                "defined in this process but NOT accepted for %s (%s): %s — these "
+                "will not appear in the picker", guild.name, guild.id,
+                ", ".join(missing),
+            )
+        if stale := [name for name in names if name not in defined]:
+            log.warning(
+                "accepted for %s (%s) but not defined here: %s — invoking one of "
+                "these looks like a hang to the member", guild.name, guild.id,
+                ", ".join(stale),
+            )
+
+    async def report_global_leftovers(self) -> None:
+        """Name any app-level registrations an earlier global sync left behind.
+
+        Reported, not deleted: clearing an application's global commands affects
+        every server the app is in, which is not this process's call to make
+        silently. The guild copies just written are what these commands now run
+        from, so the leftovers are stale rather than harmful — but if a command
+        ever shows up twice in the picker, this line is the reason.
+        """
+        try:
+            leftovers = sorted(command.name for command in await self.tree.fetch_commands())
+        except Exception:
+            log.warning("could not check for stale global command registrations")
+            return
+        if leftovers:
+            log.warning(
+                "%d stale GLOBAL command registration(s) from an earlier global "
+                "sync: %s. Guild registrations are what this bot maintains now. "
+                "To drop them: tree.clear_commands(guild=None) then await "
+                "tree.sync().", len(leftovers), ", ".join(leftovers),
+            )
 
     async def _weekly_loop(self) -> None:
         await self.wait_until_ready()
@@ -291,8 +440,135 @@ def _anthropic_client() -> Any:
     return anthropic.Anthropic()
 
 
+# ------------------------------------------------- acknowledging an interaction
+
+IN_A_SERVER_ONLY = "Run this in a server — leagues are per-server."
+
+
+async def in_a_server_only(interaction: discord.Interaction) -> None:
+    """Refuse a DM. Reached only from a plain `interaction.guild_id` read."""
+    await interaction.response.send_message(IN_A_SERVER_ONLY, ephemeral=True)
+
+
+def may_run_a_cycle(user: Any) -> bool:
+    """Server managers only — a cycle spends API budget and moves every book.
+
+    `guild_permissions` is a computed property that walks the member's roles, not
+    a plain field, so it is one of the few things that can raise before the
+    interaction has been acknowledged. `LeagueTree.on_error` is what stops that
+    from surfacing as an unexplained timeout.
+    """
+    perms = getattr(user, "guild_permissions", None)
+    return perms is not None and bool(perms.manage_guild)
+
+
+async def run_command(
+    interaction: discord.Interaction,
+    work: Callable[..., str],
+    *args: Any,
+) -> None:
+    """Acknowledge, then do the slow part off the event loop, then reply.
+
+    The order of the two statements below is the whole point, and the reason every
+    slow command funnels through this one function rather than repeating it:
+
+    1. `defer` claims Discord's three-second window. It is the first statement —
+       before any model call, network request or database work — so nothing that
+       can block is ever between the interaction arriving and its acknowledgement.
+    2. `work` is a synchronous seam onto `league.py`, so it runs in a worker
+       thread. Running it on the event loop would stall the heartbeat and every
+       other member's command.
+
+    The reply then goes out as a followup, split to Discord's 2,000-character
+    limit, because the original response has already been spent on the deferral.
+    """
+    await interaction.response.defer(thinking=True)
+    text = await asyncio.to_thread(work, *args)
+    await send_chunks(interaction, text)
+
+
+async def send_chunks(interaction: discord.Interaction, text: str) -> None:
+    """Deliver a reply of any length as followups to a deferred interaction."""
+    for chunk in split_message(text):
+        await interaction.followup.send(chunk)
+
+
+# --------------------------------------------------------- when something breaks
+
+def failure_text(command: str, error: BaseException) -> str:
+    """What a member sees when a command breaks, as opposed to being refused.
+
+    The distinction matters: a refusal is the system working and always names its
+    rule, so a crash must not be mistakable for one.
+    """
+    original = getattr(error, "original", error)
+    detail = " ".join(str(original).split())[:200]
+    named = f"`{type(original).__name__}`" + (f": {detail}" if detail else "")
+    return (
+        f"**`/{command}` broke.** {named}\n"
+        "That is a bug, not a refusal — a refusal always names the rule it "
+        "enforces. The full traceback is in the bot's log; nothing was retried "
+        "behind your back."
+    )
+
+
+async def report_failure(
+    interaction: discord.Interaction, command: str, error: BaseException
+) -> None:
+    """Tell the member something broke. Never raises — this is the last resort.
+
+    Whether the interaction was already acknowledged decides how the message can
+    be sent at all, and by the time we are here the interaction may simply be
+    dead, in which case the log is the only record left.
+    """
+    try:
+        text = failure_text(command, error)
+        if interaction.response.is_done():
+            await interaction.followup.send(text, ephemeral=True)
+        else:
+            await interaction.response.send_message(text, ephemeral=True)
+    except Exception:
+        log.exception(
+            "could not deliver the failure notice for /%s — the member saw a "
+            "timeout with no explanation", command,
+        )
+
+
+def _describe(interaction: discord.Interaction) -> str:
+    return (
+        f"guild={interaction.guild_id} user={getattr(interaction.user, 'id', '?')}"
+    )
+
+
+class LeagueTree(app_commands.CommandTree):
+    """A command tree where a handler cannot fail silently.
+
+    discord.py's default `on_error` logs and stops there, which leaves the member
+    watching a spinner that never resolves. Every exception raised anywhere in a
+    command — including in a permission check, before the interaction has been
+    acknowledged — lands here instead.
+    """
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ) -> None:
+        name = interaction.command.name if interaction.command else "unknown"
+        log.error("/%s failed — %s", name, _describe(interaction), exc_info=error)
+        await report_failure(interaction, name, error)
+
+
+async def modal_failed(
+    interaction: discord.Interaction, command: str, error: BaseException
+) -> None:
+    """A modal's submit handler blew up. Same contract as `LeagueTree.on_error`."""
+    log.error(
+        "/%s modal submit failed — %s", command, _describe(interaction), exc_info=error
+    )
+    await report_failure(interaction, command, error)
+
+
 def register_commands(tree: app_commands.CommandTree, bot: "LeagueBot") -> None:
-    """Attach /join, /standings and /cycle. Each is a two-line delegation."""
+    """Attach the seven commands. Each is a guard, then one delegation."""
 
     @tree.command(name="join", description="Get a simulated $100k book traded by an agent.")
     @app_commands.describe(mandate="Which mandate should trade your book?")
@@ -301,35 +577,33 @@ def register_commands(tree: app_commands.CommandTree, bot: "LeagueBot") -> None:
         interaction: discord.Interaction,
         mandate: app_commands.Choice[str] | None = None,
     ) -> None:
+        # Deferred despite being the fastest command here: funding a book is a
+        # write, and a write waits on SQLite's five-second busy timeout if a
+        # cycle happens to hold the lock — already past Discord's three.
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "Run this in a server — leagues are per-server.", ephemeral=True
-            )
+            await in_a_server_only(interaction)
             return
-        await interaction.response.defer(thinking=True)
-        text = await asyncio.to_thread(
+        await run_command(
+            interaction,
             bot.join_text,
             interaction.guild_id,
             interaction.user.id,
             interaction.user.display_name,
             mandate.value if mandate else arena.VALUE.name,
         )
-        await interaction.followup.send(text)
 
     @tree.command(name="standings", description="Everyone's book against SPY.")
     async def standings(interaction: discord.Interaction) -> None:
+        # Marks for every held name plus the SPY history, both over the network.
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "Run this in a server — leagues are per-server.", ephemeral=True
-            )
+            await in_a_server_only(interaction)
             return
-        await interaction.response.defer(thinking=True)
-        text = await asyncio.to_thread(
+        await run_command(
+            interaction,
             bot.standings_text,
             interaction.guild_id,
             interaction.guild.name if interaction.guild else "",
         )
-        await interaction.followup.send(text)
 
     @tree.command(name="buy", description="Log a buy on your book. Opens the plan form.")
     @app_commands.describe(
@@ -352,10 +626,12 @@ def register_commands(tree: app_commands.CommandTree, bot: "LeagueBot") -> None:
         stop: float | None = None,
     ) -> None:
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "Run this in a server — leagues are per-server.", ephemeral=True
-            )
+            await in_a_server_only(interaction)
             return
+        # Opening the modal *is* this interaction's acknowledgement — a deferral
+        # first would make send_modal illegal. The written plan is collected
+        # instantly from what Discord already sent us, and the slow work waits
+        # for `BuyModal.on_submit`, which defers before touching anything.
         await interaction.response.send_modal(
             BuyModal(
                 bot, ticker.strip().upper(),
@@ -371,10 +647,9 @@ def register_commands(tree: app_commands.CommandTree, bot: "LeagueBot") -> None:
         interaction: discord.Interaction, ticker: str, price: float | None = None
     ) -> None:
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "Run this in a server — leagues are per-server.", ephemeral=True
-            )
+            await in_a_server_only(interaction)
             return
+        # As with /buy: the modal is the acknowledgement. See BuyModal.on_submit.
         await interaction.response.send_modal(
             SellModal(bot, ticker.strip().upper(), price)
         )
@@ -382,56 +657,39 @@ def register_commands(tree: app_commands.CommandTree, bot: "LeagueBot") -> None:
     @tree.command(name="review", description="Weekly review — clears the 9-day lockout.")
     @app_commands.describe(note="Optional note to file with the review.")
     async def review(interaction: discord.Interaction, note: str = "") -> None:
+        # Marks for every held name, plus the SPY mirror. Network either way.
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "Run this in a server — leagues are per-server.", ephemeral=True
-            )
+            await in_a_server_only(interaction)
             return
-        await interaction.response.defer(thinking=True)
-        text = await asyncio.to_thread(
-            bot.review_text, interaction.guild_id, interaction.user.id, note
+        await run_command(
+            interaction, bot.review_text, interaction.guild_id, interaction.user.id, note
         )
-        chunks = split_message(text)
-        await interaction.followup.send(chunks[0])
-        for chunk in chunks[1:]:
-            await interaction.followup.send(chunk)
 
     @tree.command(name="research", description="This week's brief for a company.")
     @app_commands.describe(ticker="Ticker to research, e.g. COST")
     async def research(interaction: discord.Interaction, ticker: str) -> None:
+        # A cache miss means a filing fetch, a model call and a lint pass.
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "Run this in a server — leagues are per-server.", ephemeral=True
-            )
+            await in_a_server_only(interaction)
             return
-        await interaction.response.defer(thinking=True)
-        text = await asyncio.to_thread(
-            bot.research_text, interaction.guild_id, interaction.user.id, ticker
+        await run_command(
+            interaction, bot.research_text, interaction.guild_id, interaction.user.id,
+            ticker,
         )
-        chunks = split_message(text)
-        await interaction.followup.send(chunks[0])
-        for chunk in chunks[1:]:
-            await interaction.followup.send(chunk)
 
     @tree.command(name="cycle", description="Run this week's cycle now (admin only).")
     async def cycle(interaction: discord.Interaction) -> None:
+        # The slowest command by a wide margin: a screen over the whole universe,
+        # a brief per candidate, and one model call per member.
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "Run this in a server — leagues are per-server.", ephemeral=True
-            )
+            await in_a_server_only(interaction)
             return
-        perms = getattr(interaction.user, "guild_permissions", None)
-        if perms is None or not perms.manage_guild:
+        if not may_run_a_cycle(interaction.user):
             await interaction.response.send_message(
                 "Only a server manager can trigger a cycle.", ephemeral=True
             )
             return
-        await interaction.response.defer(thinking=True)
-        text = await asyncio.to_thread(bot.run_cycle_text, interaction.guild_id)
-        chunks = split_message(text)
-        await interaction.followup.send(chunks[0])
-        for chunk in chunks[1:]:
-            await interaction.followup.send(chunk)
+        await run_command(interaction, bot.run_cycle_text, interaction.guild_id)
 
 
 # --------------------------------------------------------------------- modals
@@ -497,14 +755,19 @@ class BuyModal(discord.ui.Modal, title="Log a buy"):
         self._stop = stop
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(thinking=True)
-        text = await asyncio.to_thread(
-            self._bot.buy_text,
+        # This is where /buy's slow work lives, so this is where it defers. The
+        # `str(...)` calls are reads of what Discord already delivered.
+        await run_command(
+            interaction, self._bot.buy_text,
             interaction.guild_id, interaction.user.id, self._ticker, self._bucket,
             self._price, self._stop, str(self.shares), str(self.thesis),
             str(self.invalidation), str(self.horizon), str(self.exit_plan),
         )
-        await interaction.followup.send(text)
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: Exception
+    ) -> None:
+        await modal_failed(interaction, "buy", error)
 
 
 class SellModal(discord.ui.Modal, title="Log a sell"):
@@ -526,13 +789,16 @@ class SellModal(discord.ui.Modal, title="Log a sell"):
         self._price = price
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(thinking=True)
-        text = await asyncio.to_thread(
-            self._bot.sell_text,
+        await run_command(
+            interaction, self._bot.sell_text,
             interaction.guild_id, interaction.user.id, self._ticker,
             self._price, str(self.shares), str(self.outcome),
         )
-        await interaction.followup.send(text)
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: Exception
+    ) -> None:
+        await modal_failed(interaction, "sell", error)
 
 
 def render_review(
@@ -655,7 +921,16 @@ def announce_channel(guild: Any) -> Any:
 
 
 def run() -> None:
-    """Entry point — `thesis bot`. Reads DISCORD_TOKEN from .env."""
-    logging.basicConfig(level=logging.INFO)
+    """Entry point — `thesis bot`. Reads DISCORD_TOKEN from .env.
+
+    Timestamps and logger names are on deliberately: the console is the only
+    place a live failure is visible, and "which command, at what time" is the
+    first thing you need from it.
+    """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     token = config.discord_token()
     LeagueBot().run(token, log_handler=None)
