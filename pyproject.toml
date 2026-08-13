@@ -1,0 +1,45 @@
+[project]
+name = "thesis"
+version = "0.1.0"
+description = "AI research copilot + disciplined trading journal with SPY-benchmarked track record"
+readme = "CLAUDE.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.15",
+    "yfinance>=0.2.50",
+    "anthropic>=0.60",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "pandas>=2.0",
+    "reportlab>=5.0.0",
+    "discord-py>=2.4",
+]
+
+[project.scripts]
+thesis = "thesis.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/thesis"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    # discord.py imports audioop for voice support, which we do not use.
+    "ignore:'audioop' is deprecated:DeprecationWarning",
+    # discord.py 2.7 deprecates TextInput(label=...) in favour of wrapping the
+    # input in discord.ui.Label. The old form still works; migrating changes how
+    # a Modal retrieves submitted values, which cannot be verified without a live
+    # Discord round-trip, so it is deliberately deferred rather than guessed at.
+    "ignore:label is deprecated:DeprecationWarning",
+]

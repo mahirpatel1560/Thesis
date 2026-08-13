@@ -1,0 +1,580 @@
+# DATA PACKET: COST (Costco Wholesale Corporation)
+Sector: Consumer Defensive | Industry: Discount Stores
+
+## PRICES [yf prices]
+Last close: $951.58 (as of 2026-07-27)
+52-week range: $846.26 – $1092.58
+Returns: 3m -5.9%, 1y 1.8%, since 2024-07-29 18.0%
+
+## FINANCIALS [yf financials]
+FY2025 revenue: $275.24B
+FY2024 revenue: $254.45B
+FY2023 revenue: $242.29B
+FY2022 revenue: $226.95B
+FY2025 net income: $8.10B
+FY2024 net income: $7.37B
+FY2023 net income: $6.29B
+FY2022 net income: $5.84B
+Annual revenue growth (latest full fiscal year vs. the prior one): 8.2%
+Operating margin (latest FY): 3.8%
+Net margin (latest FY): 2.9%
+Free cash flow (latest FY): $7.84B
+Total debt: $8.17B
+Cash & equivalents: $14.16B
+
+## VALUATION [yf valuation]
+NOTE: the revenue-growth figure below is a QUARTERLY rate reported by the market-data provider (latest quarter vs. the same quarter a year earlier). It is not an annual rate, it is not comparable to the annual revenue growth in the FINANCIALS section above, and the two can differ by a wide margin for the same company. Label whichever you cite.
+market cap: $422.01B
+trailing P/E: 47.8
+forward P/E: 42.0
+P/S (ttm): 1.4
+EV/EBITDA: 30.5
+gross margin: 12.9%
+quarterly revenue growth (latest quarter vs. same quarter a year earlier): 21.5%
+
+## NEWS (recent headlines)
+- [2026-07-27] 7-Eleven has a gas discount that challenges Costco (TheStreet)
+- [2026-07-27] Costco's Kirkland Brand Is Becoming a Powerful Growth Engine (Zacks)
+- [2026-07-27] 3 Top Retail Stocks: Buy, Sell or Hold? (24/7 Wall St.)
+- [2026-07-27] What to Expect From Costco Wholesale's Q4 2026 Earnings Report (Barchart)
+- [2026-07-27] Why Premium Grocers Skew CMBS Delinquency Rankings (CRE Daily)
+- [2026-07-27] Walmart Is at $108. Here's Why Investors Should Take Pause. (Motley Fool)
+- [2026-07-26] Back to School Spending Expected to Set Records as Shoppers Hunt for Bargains (Barrons.com)
+- [2026-07-26] 2 Stocks Built to Thrive If Inflation Refuses to Fade (MarketBeat)
+- [2026-07-26] Everyone Said It Was Too Late to Buy This Stock. They Were Wrong. (Motley Fool)
+- [2026-07-25] Costco makes big payment changes (TheStreet)
+
+## 10-K (filed 2025-10-08, period 2025-08-31, accession 0000909832-25-000101)
+
+### ITEM 1 — Business [10-K 1]
+Business
+
+Costco Wholesale Corporation and its subsidiaries (Costco or the Company) began operations in 1983, in Seattle, Washington. We are principally engaged in the operation of membership warehouses in the United States (U.S.) and Puerto Rico, Canada, Mexico, Japan, the United Kingdom (U.K.), Korea, Australia, Taiwan, China, Spain, France, Sweden, Iceland, and New Zealand. Costco operated 914, 890, and 861 warehouses worldwide at August 31, 2025, September 1, 2024, and September 3, 2023. The Company operates e-commerce sites in the U.S., Canada, Mexico, the U.K., Korea, Taiwan, Japan, and Australia. Our common stock trades on the NASDAQ Global Select Market, under the symbol “COST.”
+
+We report on a 52/53-week fiscal year, consisting of thirteen four-week periods and ending on the Sunday nearest the end of August. The first three quarters consist of three periods each, and the fourth quarter consists of four periods (five weeks in the thirteenth period in a 53-week year). The material seasonal impact in our operations is increased net sales and earnings during the winter holiday season. References to 2025 and 2024 relate to the 52-week fiscal years ended August 31, 2025, and September 1, 2024. References to 2023 relate to the 53-week fiscal year ended September 3, 2023.
+
+General
+
+We operate membership warehouses and e-commerce sites based on the concept that offering low prices on a limited selection of nationally-branded and private-label products in a wide range of categories will produce high sales volumes and rapid inventory turnover. When combined with the operating efficiencies achieved by volume purchasing, efficient distribution and reduced handling of merchandise in no-frills, self-service warehouse facilities, these volumes and turnover enable us to operate profitably at significantly lower gross margins (net sales less merchandise costs) than most other retailers. We often sell inventory before we are required to pay for it, even while taking advantage of early payment discounts.
+
+We buy most of our merchandise directly from suppliers and route it to cross-docking consolidation points (depots) or directly to our warehouses. Our depots receive large shipments from suppliers and quickly ship these goods to warehouses. This process creates freight volume and handling efficiencies, lowering
+
+costs associated with traditional multiple-step distribution channels. Our e-commerce operations ship merchandise through our depots and logistics operations, as well as through drop-ship and other delivery arrangements with our suppliers.
+
+Our average warehouse space is approximately 147,000 square feet, with newer units being slightly larger. Floor plans are designed for efficiency in the use of selling space, the handling of merchandise, and the control of inventory. Because shoppers are attracted principally by the quality of merchandise and low prices, our warehouses are not elaborate. By strictly controlling the entrances and exits and using a membership format, we believe our inventory losses (shrinkage) are well below those of typical retail operations.
+
+Our operating hours are shorter than many other retailers, and due to other efficiencies inherent in a warehouse club operation, we believe labor costs are lower relative to the volume of sales. In the U.S., we recently added exclusive shopping hours for our Executive members and our gasoline operations generally have extended hours. Merchandise is generally stored on racks above the sales floor and displayed on pallets containing large quantities, reducing labor required. In general, with variations by country, our warehouses accept certain credit cards, including Costco co-branded cards, debit cards, cash and checks, Executive member 2% reward certificates, co-brand cardholder rebates, and our proprietary stored-value card (shop card).
+
+Our strategy is to provide our members with a broad range of high-quality merchandise at prices we believe are consistently lower than elsewhere. We seek to limit most items to fast-selling models, sizes, and colors. We carry less than 4,000 active stock keeping units (SKUs) per warehouse in our core warehouse business, significantly less than other broadline retailers. We average from 9,000 to 10,000 SKUs online, some of which are available in our warehouses. Many consumable products are offered for sale in case, carton, or multiple-pack quantities only.
+
+To promote member satisfaction, we generally accept returns of merchandise. On certain electronic items, we have a 90-day return policy and provide, free of charge, technical support services, as well as an extended warranty. Additional third-party warranty coverage is sold on certain electronic items and major appliances.
+
+We offer merchandise and services in the following categories:
+
+■ Core Merchandise Categories:
+
+• Foods and Sundries (including sundries, dry grocery, candy, cooler, freezer, liquor, and tobacco)
+
+• Non-Foods (including major appliances, small electronics, health and beauty aids, hardware, lawn and garden, sporting goods, tires, toys and seasonal, automotive, stamps, tickets, apparel, furniture, domestics, housewares, special order kiosk, and jewelry)
+
+• Fresh Foods (including meat, produce, deli, and bakery)
+
+■ Warehouse Ancillary (includes gasoline, pharmacy, optical, food court, hearing aids, and tire installation)
+
+■ Other Businesses (includes e-commerce, business centers, travel, and other)
+
+Warehouse ancillary operate primarily within, next to or near our warehouses, encouraging more frequent shopping. The number of warehouses with gas stations varies significantly by country. We operated 747 gas stations at the end of 2025. Our gasoline business represented approximately 10% of total net sales in 2025.
+
+Our other businesses sell products and services that largely complement our warehouse operations. Our e-commerce operations give members convenience and a broader selection of goods and services. Net sales for e-commerce represented approximately 7% of total net sales in 2025. Digitally-enabled sales,
+
+which represents sales delivered to members that are initiated through a digital device, whether fulfilled through a warehouse or distribution center, as well as Costco Travel, represented approximately 10% of total net sales in 2025. Our business centers carry items tailored for food services, convenience stores and offices and offer walk-in shopping and deliveries. Business centers are included in our total warehouse count. Costco Travel offers vacation packages, car rentals, cruises and other travel products exclusively for Costco members (offered to varying degrees in the U.S., Canada, Australia, and the U.K.).
+
+We have direct relationships with many producers of brand-name merchandise. We do not obtain a significant portion of merchandise from any one supplier. When sources of supply become unavailable, we seek alternative sources or items. For future product supply need, we pursue diversification in our supply-chain and seek to expand in-country production. We also purchase and manufacture private-label merchandise, as long as quality and member demand are high and the value to our members is significant.
+
+Certain financial information for our segments and geographic areas is included in Note 11 to the consolidated financial statements included in Item 8 of this Report.
+
+Membership
+
+Our members may utilize their memberships at all of our warehouses and e-commerce sites. Gold Star memberships are available to individuals; Business memberships are limited to businesses, including individuals with a business license or comparable document. Business members may add additional cardholders (affiliates), to which the same annual fee applies. Affiliates are not available for Gold Star members. Our annual fee for these memberships is $65 in the U.S. and varies in other countries. All paid memberships include a free household card.
+
+Paid members (except affiliates) are eligible to upgrade to an Executive membership in the U.S., for an additional annual fee of $65. Executive memberships are also available in Canada, Mexico, the U.K., Japan, Korea, Taiwan, and Australia, for which the additional fee varies. Executive members earn a 2% reward on qualified purchases (generally up to a maximum reward of $1,250 per year), redeemable at Costco warehouses. The sales penetration of Executive members represented approximately 73.6% of worldwide net sales in 2025.
+
+Membership at the end of 2025, 2024, and 2023 was made up of the following (in thousands):
+
+2025 2024 2023
+
+Gold Star 68,300 63,700 58,800
+
+Business, including affiliates 12,700 12,500 12,200
+
+Total paid members 1
+81,000 76,200 71,000
+
+Household cards 64,200 60,600 56,900
+
+Total cardholders 145,200 136,800 127,900
+
+_______________
+
+(1) Executive members represented 38,700, 35,400, and 32,300 of total paid members in 2025, 2024, and 2023.
+
+These membership counts include active memberships as well as memberships that have expired and not renewed within the 12 months prior to the reporting date. These expired memberships make up a small percentage of these membership counts, and many of them are subsequently renewed.
+
+Our member renewal rate was 92.3% in the U.S. and Canada and 89.8% worldwide at the end of 2025. That rate, which excludes affiliates of Business members, is a trailing calculation that captures renewals during the period seven to eighteen months prior to the reporting date. Memberships that have an expiration date in the six months prior to the end of our reporting period are excluded from this calculation, regardless of whether or not they have been renewed. Although most members renew prior to expiration, the vast majority of those who renew late do so within six months of expiration. The timing of
+
+renewal after expiration is impacted by a variety of factors, such as warehouse openings and promotional activity.
+
+Human Capital
+
+“Take Care of Our Employees,” is a key component of our code of ethics and is fundamental to our commitment to “Take Care of Our Members.” Compensation and benefits for employees is our largest expense after the cost of merchandise and is carefully monitored.
+
+Employee Base
+
+At the end of 2025, we employed 341,000 employees worldwide. Approximately 95% are employed in our membership warehouses and distribution channels. Around 5% are represented by unions. We also utilize seasonal employees.
+
+The total number of employees by segment was:
+
+2025 2024 2023
+
+United States 223,000 219,000 208,000
+
+Canada 55,000 53,000 51,000
+
+Other International 63,000 61,000 57,000
+
+Total employees 341,000 333,000 316,000
+
+Growth and Engagement
+
+We believe that our warehouses are among the most productive in the retail industry, owing largely to the commitment and efficiency of our employees. We seek to provide them not merely with employment but careers. Many attributes of our business contribute to the objective. The more significant include: competitive compensation and benefits; a commitment to employee development and promoting from within; and a target ratio of at least 50% of our base being full-time employees. These attributes contribute to what we consider, especially for the industry, a high retention rate. In 2025, in the U.S. and Canada that rate was approximately 94% for employees who have been with us for at least one year.
+
+Inclusion
+
+The commitment to “Take Care of Our Employees” includes promoting an inclusive and respectful workplace. We strive for an environment where all employees feel that they belong, are accepted, included, respected and supported. We demonstrate leadership commitment to inclusion through consistent communication, employee development and education, support of diversity and inclusion initiatives within the organization, community involvement, and supplier inclusion. Listening to our employees is one of the ways Costco takes care of its workforce. In 2025, we hosted the Costco Connects meetings, its second annual Costco Connects campaign. These open listening sessions are an invitation for employees to talk about what is on their minds and what is impacting them both personally and professionally. This allows Costco leaders to engage with their employees on a deeper level and for employees to build connections with each other. This year we had approximately 200,000 employees participate globally. Costco continues its efforts to develop future leaders, including through our supervisor in training (SIT) programs in the U.S. and Canada. In 2025, approximately 7,500 hourly employees completed the 6-week course.
+
+Well Being
+
+We strive to provide our employees with competitive wages and excellent benefits. In March 2025, we increased the starting wage by $0.50 an hour to at least $20.00 for all entry-level positions in the U.S. and Canada. We also increased the top of wage scales by $1.00 per hour, bringing our average hourly rate at the end of 2025 for hourly employees in the U.S. to approximately $32.00 per hour. We continue to offer
+
+expansive benefits in the U.S. that provide physical, emotional, mental, and financial well-being support for employees and their dependents at low cost to our employees.
+
+For more detailed information regarding our programs and initiatives, see “Employees” within our Sustainability Commitment (located on our website). The Sustainability Commitment and other information on our website are not incorporated by reference into and do not form any part of this Annual Report.
+
+Competition
+
+Our industry is highly competitive, based on factors such as price, merchandise quality and selection, location, convenience, distribution strategy, and customer service. We compete on a worldwide basis with global, national, and regional wholesalers and retailers, including supermarkets, supercenters, online retailers, gasoline stations, hard discounters, department and specialty stores, and operators selling a single category or narrow range of merchandise. Walmart, Target, Kroger, and Amazon are among our significant general merchandise retail competitors in the U.S. We also compete with other warehouse clubs, including Walmart’s Sam’s Club and BJ’s Wholesale Club in the U.S. Many of the metropolitan areas in the U.S. and certain of our Other International locations have multiple competing clubs.
+
+Intellectual Property
+
+We believe that, to varying degrees, our trademarks, trade names, copyrights, proprietary processes, trade secrets, trade dress, domain names and similar intellectual property add significant value to our business and are important to our success. We have invested significantly in the development and protection of our well-recognized brands, including the Costco Wholesale trademarks and our private-label brand, Kirkland Signature. We believe that Kirkland Signature products are high quality, offered at prices that are generally lower than national brands, and help lower costs, differentiate our merchandise offerings, and generally earn higher margins. We expect to continue to increase the sales penetration of our private-label items.
+
+We rely on trademark and copyright laws, trade-secret protection, and confidentiality, license and other agreements with our suppliers, employees and others to protect our intellectual property. The availability and duration of trademark registrations vary by country; however, trademarks are generally valid and may be renewed indefinitely as long as they are in use and registrations are maintained.
+
+Available Information
+
+Our U.S. website is www.costco.com. We make available through the Investor Relations section of that site, free of charge, our Annual Reports on Form 10-K, Quarterly Reports on Form 10-Q, Current Reports on Form 8-K, Proxy Statements and Forms 3, 4 and 5, and any amendments to those reports, as soon as reasonably practicable after filing such materials with or furnishing such documents to the Securities and Exchange Commission (SEC). The information found on our website is not part of this or any other report filed with or furnished to the SEC. The SEC maintains a site that contains reports, proxy and information statements, and other information regarding issuers, such as the Company, that file electronically with the SEC at www.sec.gov.
+
+We have a code of ethics for senior financial officers, pursuant to Section 406 of the Sarbanes-Oxley Act. Copies of the code are available free of charge by writing to Secretary, Costco Wholesale Corporation, 999 Lake Drive, Issaquah, WA 98027. If the Company makes any amendments to this code (other than technical, administrative, or non-substantive amendments) or grants any waivers, including implicit waivers, to the Chief Executive Officer, Chief Financial Officer or principal accounting officer and controller, we will disclose (on our website or in a Form 8-K report filed with the SEC) the nature of the amendment or waiver, its effective date, and to whom it applies.
+
+Information about our Executive Officers
+
+The executive officers of Costco, their position, and ages are listed below. Most officers have over 25 years of service with the Company.
+
+Name Position Executive
+
+Officer
+
+Since Age
+
+Ron M. Vachris President and Chief Executive Officer. Mr. Vachris has been a director since February 2022. Mr. Vachris was previously President and Chief Operating Officer from February 2022 to December 2023. He was Executive Vice President of Merchandising from June 2016 to January 2022, Senior Vice President, Real Estate Development, from August 2015 to June 2016, and Senior Vice President, General Manager, Northwest Region, from 2010 to July 2015. 2016 60
+
+Gary Millerchip Executive Vice President and Chief Financial Officer. Mr. Millerchip previously served as Senior Vice President and Chief Financial Officer of The Kroger Co. from April 2019 to February 2024 and, prior to that, as Chief Executive Officer of Kroger Personal Finance since July 2010. 2024 54
+
+Russ Miller Senior Executive Vice President, U.S. Operations. Mr. Miller was Executive Vice President, Chief Operating Officer, Southwest Division and Mexico, from January 2018 to May 2022. Mr. Miller was Senior Vice President, Western Canada Region, from 2001 to January 2018. Mr. Miller will be retiring from the Company effective February 2026. 2018 68
+
+Claudine Adamo Executive Vice President, Merchandising. Ms. Adamo was Senior Vice President, Non-Foods, from 2018 to February 2022, and Vice President, Non-Foods, from 2013 to 2018. 2022 55
+
+Patrick Callans Executive Vice President, Administration. Mr. Callans was Senior Vice President, Human Resources and Risk Management, from 2013 to December 2018. 2019 63
+
+Caton Frates Executive Vice President, Chief Operating Officer, Southwest Division. Mr. Frates was Senior Vice President, Los Angeles Region, from 2015 to May 2022. Mr. Frates will be appointed Senior Executive Vice President, Warehouse Operations - U.S. and Mexico, effective February 2026. 2022 57
+
+Teresa Jones Executive Vice President, Global Depots and Traffic. Ms. Jones was Senior Vice President, Depot Operations from August 2022 to July 2024, and Vice President, Depot Operations, from 2018 to 2022. 2024 56
+
+Jim C. Klauer Executive Vice President, Chief Operating Officer, Northern Division. Mr. Klauer was Senior Vice President, Non-Foods and E-commerce Merchandise, from 2013 to January 2018. 2018 63
+
+Javier Polit Executive Vice President, Chief Information and Digital Officer. Mr. Polit previously served as Chief Information Officer for Mondelez International (formerly Kraft Foods) from 2022 to 2024. From 2017 to 2022, he was Chief Information Officer for The Procter & Gamble Company. Prior to that role, he served as Group Chief Information Officer for The Coca-Cola Company from 2007 to 2017. 2023 61
+
+Pierre Riel Executive Vice President, Chief Operating Officer, International Division. Mr. Riel was Senior Vice President, Country Manager, Canada, from 2019 to March 2022, and Senior Vice President, Eastern Canada Region, from 2001 to 2019. 2022 62
+
+Yoram Rubanenko Executive Vice President, Chief Operating Officer, Eastern Division. Mr. Rubanenko was Senior Vice President and General Manager, Southeast Region, from 2013 to September 2021, and Vice President, Regional Operations Manager for the Northeast Region, from 1998 to 2013. 2021 61
+
+John Sullivan Executive Vice President, General Counsel & Corporate Secretary. Mr. Sullivan has been General Counsel since 2016 and Corporate Secretary since 2010. 2021 65
+
+W. Richard Wilcox Executive Vice President, Chief Operating Officer, Southwest Division. Mr. Wilcox was Senior Vice President, General Manager - San Diego Region from 2016 to October 2025. 2025 59
+
+### ITEM 1A — Risk Factors [10-K 1A]
+Risk Factors
+
+The risks described below could materially and adversely affect our business, financial condition and results of operations. We could also be affected by additional risks that apply to all companies operating in the U.S. and globally, as well as other risks that are not presently known to us or that we currently consider to be immaterial. These Risk Factors should be carefully reviewed in conjunction with Management ' s Discussion and Analysis of Financial Condition and Results of Operations in Item 7 and our consolidated financial statements and related notes in Item 8 of this Report.
+
+Business and Operating Risks
+
+We are highly dependent on the financial performance of our U.S. and Canadian operations.
+
+Our financial and operational performance is highly dependent on our U.S. and Canadian operations, which comprised 86% and 84% of net sales and operating income in 2025. Within the U.S., we are highly dependent on our California operations, which comprised 26% of U.S. net sales in 2025. Our California market, in general, has a larger percentage of higher volume warehouses as compared to our other domestic markets. Any substantial slowing or sustained decline in these operations could materially adversely affect our business and financial results. Declines in financial performance of our U.S. operations, particularly in California, and our Canadian operations could arise from, among other things: slow growth or declines in comparable warehouse sales (comparable sales); negative trends in operating expenses, including increased labor, healthcare and energy costs; failing to meet targets for warehouse openings; cannibalizing existing locations with new warehouses; shifts in sales mix toward lower gross margin products; changes or uncertainties in economic conditions in our markets, including higher levels of unemployment and depressed home values; and failing to consistently provide high quality and innovative new products.
+
+We may be unsuccessful implementing our growth strategy, including expanding our business in existing markets and new markets, and integrating acquisitions, which could have an adverse impact on our business, financial condition and results of operations.
+
+Our growth is dependent, in part, on our ability to acquire property and build or lease new warehouses and depots. We compete with other retailers and businesses for suitable locations. Local land use and other regulations restricting the construction and operation of our warehouses and depots, as well as local community actions opposed to the location of our warehouses or depots at specific sites and the adoption of local laws restricting our operations and environmental regulations, may impact our ability to find suitable locations and increase the cost of sites and of constructing, leasing and operating warehouses and depots. We also may have difficulty negotiating leases or purchase agreements on acceptable terms. With continued growth in global demand for electricity and water stress in certain regions, we may have difficulty securing long-term utility contracts for new buildings or incur additional costs due to onsite generation and storage requirements. In addition, certain jurisdictions have enacted or proposed laws and regulations that would prevent or restrict the operation or expansion plans of certain large retailers and warehouse clubs, including us. Failure to effectively manage these and other similar factors may affect our ability to timely build or lease and operate new warehouses and depots, which could have a material adverse effect on our future growth and profitability.
+
+We seek to expand in existing markets to attain a greater overall market share. A new warehouse may draw members away from our existing warehouses and adversely affect their comparable sales performance, member traffic, and profitability.
+
+We intend to continue to open warehouses in new markets. Associated risks include difficulties in attracting members due to a lack of familiarity with us, attracting members of other wholesale club operators, our lesser familiarity with local member preferences, and seasonal differences in the market. Entry into new markets may bring us into competition with new competitors or with existing competitors with a large, established market presence. We cannot ensure that new warehouses and new e-commerce sites will be profitable and future profitability could be delayed or otherwise materially adversely affected.
+
+We have made and may continue to make investments and acquisitions to improve the speed, accuracy and efficiency of our supply chains and delivery channels. The effectiveness of these investments can be less predictable than opening new locations and might not provide the anticipated benefits or desired rates of return.
+
+Our failure to maintain membership growth, loyalty and brand recognition could adversely affect our results of operations.
+
+Membership loyalty and growth are essential to our business. The extent to which we achieve growth in our membership base, increase the penetration of Executive membership, and sustain high renewal rates materially influences our profitability. Damage to our brands or reputation may negatively impact comparable sales, diminish member trust, and reduce renewal rates and, accordingly, net sales and membership fee revenue, negatively impacting our results of operations.
+
+We sell many products under our Kirkland Signature brand. Maintaining consistent product quality, competitive pricing, and availability of these products is essential to developing and maintaining member loyalty. These products also generally carry higher margins than national brand products and represent a growing portion of our overall sales. If the Kirkland Signature brand experiences a loss of member acceptance or confidence, our sales and gross margin results could be adversely affected.
+
+Disruptions in merchandise distribution or processing, packaging, manufacturing, and other facilities could adversely affect sales and member satisfaction.
+
+We depend on the orderly operation of the merchandise receiving and distribution process, primarily through our depots. We also rely upon processing, packaging, manufacturing and other facilities to support our business, which includes the production of certain private-label items. Although we believe that our operations are efficient, disruptions due to extreme weather, pandemics or other catastrophic events, labor issues, work stoppage, or other shipping problems may result in delays in the production and delivery of merchandise to and the operation of our warehouses, which could adversely affect sales and the satisfaction of our members. Our e-commerce operations depend heavily on logistics providers, both internal and external, and are negatively affected when services are unable to be provided in a timely fashion.
+
+We may not timely identify or effectively respond to consumer tastes and preferences, which could negatively affect our relationship with our members, the demand for our products and services, and our market share.
+
+It is difficult to consistently and successfully predict the products and services that our members will desire. Our success depends, in part, on our ability to identify and respond to trends in demographics and consumer preferences. Failure to identify timely or effectively respond to changing consumer tastes, preferences and spending patterns including those related to resource efficiency, environmental protection, human rights, and the transition to a low-carbon economy could negatively affect our relationship with our members, the demand for our products and services, and our market share. We sell a substantial amount of gasoline, the demand for which could be impacted by concerns and regulation about climate change.
+
+If we are not successful at predicting our sales trends and adjusting our purchases accordingly, we may have excess inventory, which could result in additional markdowns, or we may experience out-of-stock positions and delivery delays, which could result in higher costs, both of which would reduce our operating performance. This could have an adverse effect on net sales, gross margin and operating income.
+
+Availability and performance of our IT systems are vital to our business. Failure to successfully execute IT projects and have IT systems available to our business would adversely impact our operations.
+
+IT systems play a crucial role in conducting our business. These systems are utilized to, among other things, process a very high volume of transactions, conduct payment transactions, track and value our inventory and produce reports critical for making business decisions. Failure or disruption of these systems could have an adverse impact on our ability to buy products and services from our suppliers, produce goods in our manufacturing plants, move products in an efficient manner to our warehouses, and sell products to our members. Given the high volume of transactions we process, it is important that we build strong resiliency to lessen disruption from events such as power outages, computer and telecommunications failures, viruses, internal or external security breaches and other cybersecurity incidents, errors by employees, extreme weather, and catastrophic events. Any debilitating failure of our critical IT systems, data centers and backup systems would require significant investments in resources to restore services and may cause serious impairment in our business operations, including loss of business services, increased cost of moving merchandise and failure to provide service to our members. We are currently making substantial investments in technology and IT projects, including maintaining and enhancing our digital resiliency, and failure or delay in these projects could be costly and harmful to our business. Failure to deliver IT projects efficiently and effectively could result in the loss of our competitive position and adversely impact our financial condition and results of operations. Insufficient IT capacity could also impact our capacity for timely, complete and accurate financial and non-financial reporting required by law.
+
+We are required to maintain the privacy and security of personal and business information amidst multiplying threat landscapes and in compliance with increasing privacy and data protection regulations globally. Failure to do so could damage our business, including our reputation with members, suppliers and employees, cause us to incur substantial additional costs, and become subject to litigation and regulatory action.
+
+Increased security threats and more sophisticated cyber misconduct pose a risk to our systems, networks, products and services. We rely upon IT systems and networks, some of which are managed by or belong to third parties, including suppliers, partners, vendors, and service providers. Additionally, we collect, store and process sensitive information relating to our business, members, employees, and other third parties. Operating these IT systems and networks and processing and maintaining this data in a secure manner, are critical to our business operations and strategy. Remote work has also expanded possible attack surfaces. Attempts to gain unauthorized access to systems, networks and data, both ours and third parties with whom we work, are increasing in frequency and sophistication, and in some cases, these attempts are successful. Cybersecurity attacks may range from random attempts to coordinated and targeted attacks, including sophisticated computer crimes and advanced persistent threats. Phishing attacks have emerged as particularly prominent, including as vectors for ransomware attacks, which have increased in breadth and frequency. While we train our employees as part of our security efforts, that training cannot be completely effective. These threats pose a risk to the security of our systems and networks and the confidentiality, integrity, and availability of our data. Our IT systems and networks, or those managed by third parties such as cloud providers or suppliers that otherwise host or have access to confidential information, periodically have vulnerabilities, which may go unnoticed for a period of time. Our logging capabilities, or the logging capabilities of third parties, are also not always complete or sufficiently detailed, affecting our ability to fully investigate and understand the scope of security events. While our cybersecurity and compliance efforts seek to mitigate such risks, there can be no guarantee that the actions and controls we and our third-party service providers have implemented and are implementing, will be sufficient to protect our systems, information or other property.
+
+The potential impacts of a cybersecurity attack include reputational damage, litigation, government enforcement actions, penalties, disruption to systems and operations, unauthorized release of confidential or otherwise protected information, corruption of data, diminution in the value of our investment in IT systems and increased cybersecurity protection and remediation costs. This could adversely affect our competitiveness, results of operations and financial condition and, critically in light of our business model, loss of member confidence. Further, the insurance coverage we maintain and indemnification arrangements with third parties may be inadequate to cover claims, costs, and liabilities relating to
+
+cybersecurity incidents. In addition, data we collect, store and process is subject to a variety of U.S. and international laws and regulations (such as the European Union General Data Protection Regulation, California Consumer Privacy Act, Health Insurance Portability and Accountability Act, and China's Personal Information Protection Act), evolving rules concerning artificial intelligence, and other privacy and cybersecurity laws and restrictions on use of member information that may also impair our ability to utilize data, consistent with member consents and preferences, which may carry significant potential penalties for noncompliance.
+
+We are subject to payment-related risks.
+
+We accept payments using a variety of methods, including select credit and debit cards, cash and checks, co-brand cardholder rebates, Executive member 2% reward certificates, and our shop card. As we offer new payment options to our members, we may be subject to additional rules, regulations, compliance requirements, and higher fraud losses. For certain payment methods, we pay interchange and other related acceptance fees, along with additional transaction processing fees. We rely on third parties to provide payment transaction processing services for credit and debit cards and our shop card. It could disrupt our business if these parties become unwilling or unable to provide these services to us. We are also subject to fee increases by these service providers.
+
+We must comply with evolving payment card association and network operating rules, including data security rules, certification requirements and rules governing electronic funds transfers. For example, we are subject to Payment Card Industry Data Security Standards, which contain compliance guidelines and standards with regard to our security surrounding the physical and electronic storage, processing and transmission of individual cardholder data. If our internal systems are breached or compromised, we may be liable for card re-issuance costs, subject to fines and higher transaction fees and lose our ability to accept card payments from our members, and our business and operating results could be adversely affected. Our failure to offer payment methods desired by our members could create a competitive disadvantage.
+
+We might sell products that cause illness or injury to our members, harm to our reputation, and expose us to litigation.
+
+If our merchandise, including food and prepared food products for human consumption, drugs, children ' s products, pet products and durable goods, do not meet or are perceived not to meet applicable safety or labeling standards or our members ' expectations, we could experience lost sales, increased costs, litigation or reputational harm. The sale of these items involves the risk of illness or injury to our members. Such illnesses or injuries could result from tampering by unauthorized third parties, product contamination or spoilage, including the presence of foreign objects, substances, chemicals, other agents, or residues introduced during the growing, manufacturing, storage, handling and transportation phases, or faulty design. Our suppliers are generally contractually required to comply with product safety laws, and we are dependent on them to ensure that the products we buy comply with safety and other standards. While we are subject to governmental inspection and regulations and work to comply in all material respects with applicable laws and regulations, we cannot be sure that consumption or use of our products will not cause illness or injury or that we will not be subject to claims, lawsuits, or government investigations relating to such matters, resulting in costly product recalls and other liabilities that could adversely affect our business and results of operations. Even if a product liability claim is unsuccessful or is not fully pursued, negative publicity could adversely affect our reputation with existing and potential members and our corporate and brand image, and these effects could be long-term.
+
+If we do not successfully develop and maintain a relevant and comprehensive digital experience for our members, our results of operations could be adversely impacted.
+
+We must keep pace with changing member expectations and new developments by our competitors. Our members are increasingly using mobile phones, tablets, computers, and other devices to shop and otherwise interact with us. We are making investments in our websites and mobile applications. If we are
+
+unable to make, improve, or develop relevant member-facing technology in a timely manner, our ability to compete and our results of operations could be adversely affected.
+
+Inability to attract, train and retain qualified employees could adversely impact our business, financial condition and results of operations.
+
+Our success depends on the continued contributions of our employees, including members of our senior management and other key operations, IT, merchandising and administrative personnel. Failure to identify and implement a succession plan for senior management could negatively impact our business. We must attract, train and retain a large and growing number of qualified employees, while controlling related labor costs and maintaining our core values. Our ability to control labor and benefit costs is subject to numerous internal and external factors, including regulatory changes, prevailing wage rates, union relations and healthcare and other insurance costs. We compete with other retail and non-retail businesses for these employees and invest significant resources in training and motivating them. There is no assurance that we will be able to attract or retain highly qualified employees in the future, which could have a material adverse effect on our business, financial condition and results of operations.
+
+We may incur property, casualty or other losses not covered by our insurance.
+
+Claims for employee health care benefits, workers’ compensation, general liability, property damage, directors’ and officers’ liability, vehicle liability, inventory loss, and other exposures are funded predominantly through self-insurance. Insurance coverage is maintained for certain risks to limit exposures arising from very large losses. The types and amounts of insurance may vary from time to time based on our decisions with respect to risk retention and regulatory requirements. Significant claims or events, regulatory changes, a substantial rise in costs of health care or costs to maintain our insurance or the failure to maintain adequate insurance coverage could have an adverse impact on our financial condition and results of operations.
+
+Although we maintain specific coverages for catastrophic property losses, we still bear a significant portion of the risk of losses incurred as a result of any physical damage to, or the destruction of, any warehouses, depots, manufacturing or home office facilities, loss or spoilage of inventory, and business interruption. Such losses could materially impact our cash flows and results of operations.
+
+Market and Other External Risks
+
+We face strong competition from other retailers and warehouse club operators, which could adversely affect our business, financial condition and results of operations.
+
+The retail business is highly competitive. We compete for members, employees, sites, products and services and in other important respects with a wide range of local, regional and national wholesalers and retailers, both in the United States and in foreign countries, including other warehouse-club operators, supermarkets, supercenters, online retailers, gasoline stations, pharmacies, hard discounters, department and specialty stores and operators selling a single category or narrow range of merchandise or services. Such retailers and warehouse club operators compete vigorously and in a variety of ways, including pricing, selection and availability, services, location, convenience, store hours, and the attractiveness and ease of use of websites and mobile applications. The evolution of retailing in online and mobile channels has improved the ability of customers to comparison shop, which has enhanced competition. Some competitors have greater financial resources and technology capabilities, including the faster adoption of artificial intelligence, better access to merchandise, and greater market penetration than we do. Our inability to respond effectively to competitive pressures, changes in the retail markets or customer expectations could result in lost market share and negatively affect our financial results.
+
+General economic factors, domestically and internationally, may adversely affect our business, financial condition, and results of operations.
+
+Higher energy and gasoline costs, inflation, levels of unemployment, healthcare costs, consumer debt levels, foreign-currency exchange rates, unsettled financial markets, weaknesses in housing and real estate markets, reduced consumer confidence, changes and uncertainties related to government fiscal, monetary and tax policies including changes in interest rates, tax rates, duties, tariffs, or other restrictions, sovereign debt crises, pandemics and other health crises, and other economic factors could adversely affect demand for our products and services, require a change in product mix, or impact the cost of or ability to purchase inventory. Additionally, trade-related actions in various countries have affected the costs of some of our merchandise. The degree of our exposure is dependent on (among other things) the type of goods, rates imposed, and timing of the tariffs and policy changes. The impact to our net sales and gross margin is influenced in part by our merchandising and pricing strategies in response to potential cost increases. Higher tariffs could adversely impact our results.
+
+Prices of certain commodities, including gasoline and consumable goods used in manufacturing and our warehouse retail operations, are historically volatile and are subject to fluctuations arising from changes in domestic and international supply and demand, inflationary pressures, labor costs, competition, market speculation, government regulations, taxes and periodic delays in delivery. Rapid and significant changes in commodity prices and our ability and desire to pass them through to our members may affect our sales and profit margins. These factors could also increase our merchandise costs and selling, general and administrative expenses, and otherwise adversely affect our operations and financial results. General economic conditions can also be affected by events like the outbreak of hostilities or acts of terrorism.
+
+Inflationary factors such as increases in merchandise costs may adversely affect our business, financial condition and results of operations. We may not be able to adjust prices to sufficiently offset the effect of cost increases without negatively impacting consumer demand.
+
+Suppliers may be unable to timely supply us with quality merchandise at competitive prices or may fail to adhere to our high standards, resulting in adverse effects on our business, merchandise inventories, sales, and profit margins.
+
+We depend heavily on our ability to purchase quality merchandise in sufficient quantities at competitive prices. As the quantities we require continue to grow, we have no assurances of continued supply, appropriate pricing or access to new products, and any supplier has the ability to change the terms upon which they sell to us or discontinue selling to us. Member demands may lead to out-of-stock positions causing a loss of sales and profits.
+
+We buy from numerous domestic and foreign suppliers and importers. Our inability to acquire suitable merchandise on acceptable terms or the loss of key suppliers could negatively affect us. We may not be able to develop relationships with new suppliers, and products from alternative sources, if any, may be of a lesser quality or more expensive. Because of our efforts to adhere to high-quality standards for which available supply may be limited, particularly for certain food items, the large volumes we demand may not be consistently available. Our efforts to secure supply could lead to commitments that prove to be unsuccessful in the short and long-term.
+
+Our suppliers (and those they depend upon for materials and services) are subject to risks, including labor disputes, union organizing activities, human and animal rights violations, financial liquidity, climate change, natural disasters, extreme weather conditions, environmental degradation, public health emergencies, supply constraints and general economic and political conditions and other risks similar to those we face that could limit their ability to timely provide us with acceptable merchandise. One or more of our suppliers might not adhere to our quality control, packaging, legal, regulatory, labor, human rights, environmental or animal welfare standards. These deficiencies may delay or preclude delivery of merchandise to us and might not be identified before we sell such merchandise to our members. This
+
+failure could lead to recalls and litigation and otherwise damage our reputation and our brands, increase costs, and otherwise adversely impact our business.
+
+Fluctuations in foreign-exchange rates may adversely affect our results of operations.
+
+During 2025, our international operations, including Canada, generated 27% and 34% of our net sales and operating income. Our international operations have accounted for an increasing portion of our warehouses, and we plan to continue international growth. To prepare our consolidated financial statements, we translate the financial statements of our international operations from local currencies into U.S. dollars using current exchange rates. Future fluctuations in exchange rates that are unfavorable to us may adversely affect the financial performance of our Canadian and Other International operations and have a corresponding adverse period-over-period effect on our results of operations. As we continue to expand internationally, our exposure to fluctuations in foreign-exchange rates may increase.
+
+A portion of the products we purchase is paid for in a currency other than the local currency of the country in which the goods are sold. Currency fluctuations may increase our merchandise costs and may not be passed on to members and thus may adversely affect our results of operations.
+
+Natural disasters, extreme weather conditions, or other catastrophic events could negatively affect our business, financial condition, and results of operations.
+
+Natural disasters, extreme weather conditions, and other catastrophic events, including those impacted by climate change, such as extreme temperatures, hurricanes, typhoons, floods, earthquakes, wildfires, droughts; acts of terrorism or violence, including active shooter situations; and energy shortages; particularly in California or Washington state, where our centralized operating systems and administrative personnel are located, could negatively affect our operations and financial performance. Such events could result in physical damage to our properties or inventory, additional heating, cooling, and refrigeration costs, limitations on store operating hours, less frequent visits by members to physical locations, the temporary closure of warehouses, depots, manufacturing or home office facilities, the temporary lack of an adequate work force, disruptions to our IT systems, the temporary or long-term disruption in the supply of products from some local or overseas suppliers, the temporary disruption in the transport of goods to or from overseas, delays in the delivery of goods to our warehouses or depots, delays in online merchandise delivery, the temporary reduction in the availability of products in our warehouses, and long-term disruption or threats to the habitability of key markets in which we operate. These events could also reduce demand for our products or make it difficult or impossible to procure products. We may be required to suspend operations in some or all of our locations, which could have a material adverse effect on our business, financial condition and results of operations.
+
+Pandemics and other health crises could affect our business, financial condition and results of operations in many respects.
+
+[... section truncated for length ...]
+
+### ITEM 7 — MD&A [10-K 7]
+Management's Discussion and Analysis of Financial Condition and Results of Operations (amounts in millions, except per share, share, percentages and warehouse count data)
+
+Overview
+
+Management's Discussion and Analysis of Financial Condition and Results of Operations (MD&A) is intended to promote understanding of the results of operations and financial condition. MD&A is provided as a supplement to, and should be read in conjunction with, our consolidated financial statements and the accompanying Notes to Financial Statements (Part II, Item 8 of this Form 10-K). This section generally discusses the results of operations for 2025 compared to 2024. For discussion related to the results of operations and changes in financial condition for 2024 compared to 2023 refer to Part II, Item 7, Management's Discussion and Analysis of Financial Condition and Results of Operations in our fiscal year 2024 Form 10-K, which was filed with the Securities and Exchange Commission (SEC) on October 9, 2024.
+
+We believe that the most important driver of our profitability is increasing net sales, particularly comparable sales. Net sales includes our core merchandise categories (foods and sundries, non-foods, and fresh foods), warehouse ancillary (gasoline, pharmacy, optical, food court, hearing aids, and tire installation) and other businesses (e-commerce, business centers, travel, and other). E-commerce and business center sales are allocated to the appropriate merchandise categories in the Net Sales discussion. The 2% reward associated with Executive membership reduces net sales and is allocated to the category in which the reward is generated (core merchandise categories, warehouse ancillary, and other businesses). Comparable sales is defined as net sales from warehouses open for more than one year, including remodels, relocations and expansions, and sales related to e-commerce sites operating for more than one year. The measure is intended as supplemental information and is not a substitute for net sales presented in accordance with U.S. generally accepted accounting principles (U.S. GAAP) and should be reviewed in conjunction with results reported in accordance with U.S. GAAP. Comparable sales growth is achieved through increasing shopping frequency from new and existing members and the amount they spend on each visit (average ticket). Sales comparisons can also be particularly influenced by certain factors that are beyond our control: fluctuations in currency exchange rates (with respect to our international operations) and inflation or deflation in the cost of gasoline and associated competitive conditions. The higher our comparable sales exclusive of these items, the more we can leverage our selling, general and administrative (SG&A) expenses, reducing them as a percentage of sales and enhancing profitability. Generating comparable sales growth is foremost a question of making available the right merchandise at the right prices, a skill that we believe we have repeatedly demonstrated over the long-term. Another substantial factor in net sales growth is the health of the economies in which we do business, including the effects of inflation or deflation, especially the United States. Net sales growth and gross margins are also impacted by competition, which is vigorous and widespread, across a wide range of global, national and regional wholesalers and retailers, including those with e-commerce operations. While we cannot control or reliably predict general economic health or changes in competition, we believe that we have been successful historically in adapting our business to these changes, such as through adjustments to our pricing and merchandise mix, including increasing the penetration of our private-label items, and through online offerings.
+
+Our philosophy is to provide our members with quality goods and services at competitive prices. We do not focus in the short-term on maximizing prices charged, but instead seek to maintain what we believe is a perception among our members of our “pricing authority” – consistently providing the most competitive values. Our net sales and gross margin are influenced in part by our merchandising and pricing strategies in response to cost increases. Those strategies can include, but are not limited to, working with our suppliers to share in absorbing cost increases, earlier-than-usual purchasing and in greater volumes, sourcing in the countries and regions where items are sold, as well as passing cost increases on to our members. Our investments in merchandise pricing may include reducing prices on merchandise to drive sales or meet competition and holding prices steady despite cost increases instead of passing the increases on to our members, negatively impacting gross margin and gross margin as a percentage of
+
+net sales (gross margin percentage) in the near term. Our e-commerce business, domestically and internationally, has a lower gross-margin percentage than our warehouse operations.
+
+Government actions in various countries relating to tariffs affect the costs of some of our merchandise. The degree of our exposure is dependent on (among other things) the type of goods, rates imposed, and timing of the tariffs. Higher tariffs are more likely to adversely impact rather than improve our results.
+
+We believe our gasoline business enhances traffic in our warehouses; it generally has a lower gross margin percentage and lower SG&A expense relative to our non-gasoline businesses. A higher penetration of gasoline sales will generally lower our gross margin percentage. Generally, rising gasoline prices benefit net sales growth which, given the higher sales base, negatively impacts our gross margin percentage but decreases our SG&A expenses as a percentage of net sales. A decline in gasoline prices has the inverse effect.
+
+We also achieve net sales growth by opening new warehouses. As our warehouse base grows and available and desirable sites become more difficult to secure, square footage growth becomes a comparatively less substantial component of growth. Negative aspects of such growth include lower initial operating profitability relative to existing warehouses and cannibalization of sales at existing warehouses when openings occur in existing markets. Our rate of square footage growth is generally higher in many of our foreign markets, due to the smaller base in those markets, and we expect that to continue.
+
+The membership format is integral to our business and profitability. This format is designed to reinforce member loyalty and provide continuing fee revenue. The extent to which we achieve growth in our membership base, increase the penetration of Executive memberships, and sustain high renewal rates materially influences our profitability. Our renewal rate, which excludes affiliates of Business members, is a trailing calculation that captures renewals during the period seven to eighteen months prior to the reporting date. Our paid-membership growth rate may be adversely impacted when warehouse openings occur in existing markets as compared to new markets. Our worldwide renewal rate is adversely impacted by membership growth in newer international markets and a higher penetration of memberships sold online, including through digital membership promotions, which renew at a slightly lower rate on average.
+
+Our financial performance depends heavily on controlling costs. While we believe that we have achieved successes in this area, some significant costs are partially outside our control, particularly health care and utility expenses. With respect to the compensation of our employees, our philosophy is not to seek to minimize their wages and benefits. Rather, we believe that achieving our longer-term objectives of reducing employee turnover, increasing productivity and enhancing employee satisfaction requires maintaining compensation levels that are better than the industry average for much of our workforce. This may cause us, for example, to absorb costs that other employers might seek to pass through to their workforces. Because our business operates on very low margins, modest changes in various items in the consolidated statements of income, particularly merchandise costs and SG&A expenses, can have substantial impacts on net income.
+
+Our operating models are generally the same across our U.S., Canadian, and Other International operating segments (see Note 11 to the consolidated financial statements included in Item 8 of this Report). Certain operations in the Other International segment have relatively higher rates of square footage growth, lower wage and benefit costs as a percentage of sales, less or no direct membership warehouse competition, or lack e-commerce or business delivery.
+
+In discussions of our consolidated operating results, we refer to the impact of changes in foreign currencies relative to the U.S. dollar, which are differences between the foreign-exchange rates we use to convert the financial results of our international operations from local currencies into U.S. dollars. This impact is calculated based on the difference between the current and prior period's exchange rates. The impact of changes in gasoline prices on net sales is calculated based on the difference between the current and prior period's average price per gallon. Results expressed excluding the impacts of foreign-exchange and gasoline prices are intended as supplemental information and are not a substitute for net
+
+sales presented in accordance with U.S. GAAP and should be reviewed in conjunction with results reported in accordance with U.S. GAAP.
+
+Our fiscal year ends on the Sunday closest to August 31. References to 2025 and 2024 relate to the 52-week fiscal years ended August 31, 2025, and September 1, 2024. References to 2023 relate to the 53-week fiscal year ended September 3, 2023. Certain percentages presented are calculated using actual results prior to rounding.
+
+Highlights for 2025 include:
+
+• We opened 27 new warehouses, including three relocations, for a total of 24 net new warehouses: 15 in the U.S., two in our Canadian segment, and seven in our Other International segment, compared to 30 new warehouses, including one relocation, in 2024;
+
+• Net sales increased 8% to $269,912, driven by an increase in comparable sales and sales at new warehouses;
+
+• Membership fee revenue increased 10% to $5,323, driven by new member sign-ups and membership fee increases;
+
+• Gross margin percentage increased 20 basis points; 11 basis points excluding the impact of gasoline price deflation on net sales;
+
+• SG&A expenses as a percentage of net sales increased 11 basis points; three basis points excluding the impact of gasoline price deflation;
+
+• The effective tax rate in 2025 was 25.1%, compared to 24.4% in 2024;
+
+• Net income increased 10% to $8,099, or $18.21 per diluted share compared to $7,367, or $16.56 per diluted share in 2024. Foreign-exchange rates had a negative impact on net income of $97, $0.22 per diluted share; and
+
+• In April, the Board of Directors approved a 12% increase in the quarterly cash dividend.
+
+RESULTS OF OPERATIONS
+
+Net Sales
+
+2025 2024 2023
+
+Net Sales
+$ 269,912 $ 249,625 $ 237,710
+
+Changes in net sales:
+
+U.S. 9 % 4 % 7 %
+
+Canada 6 % 6 % 4 %
+
+Other International 8 % 9 % 9 %
+
+Total Company 8 % 5 % 7 %
+
+Changes in comparable sales (1) :
+
+U.S. 6 % 4 % 3 %
+
+Canada 5 % 7 % 2 %
+
+Other International 5 % 8 % 3 %
+
+Total Company 6 % 5 % 3 %
+
+E-commerce 16 % 16 % (6) %
+
+Changes in comparable sales excluding the impact of changes in foreign-currency and gasoline prices (1) :
+
+U.S. 7 % 5 % 4 %
+
+Canada 8 % 8 % 8 %
+
+Other International 8 % 8 % 8 %
+
+Total Company 8 % 6 % 5 %
+
+E-commerce 16 % 16 % (5) %
+
+_______________
+
+(1) Comparable sales for 2024 were calculated using comparable retail weeks.
+
+Net sales increased $20,287 or 8% during 2025. The improvement was primarily attributable to an increase in comparable sales of $14,788 or 6%. Comparable sales were positively impacted by increases of 5% in shopping frequency and approximately 1% in average ticket. The remaining increase in net sales was driven by sales at the 24 net new warehouses opened since the end of 2024.
+
+Sales increased $19,086 or 10% in core merchandise categories, increasing in all categories. Sales in warehouse ancillary and other businesses increased $1,201, or 2%.
+
+Lower gasoline prices negatively impacted net sales by $2,329, or 93 basis points, with an 8% decrease in the average price per gallon. The volume of gasoline sold increased approximately 2%, positively impacting net sales by $440, or 18 basis points.
+
+Changes in foreign currencies relative to the U.S. dollar negatively impacted net sales by approximately $1,943, or 78 basis points, attributable to our Other International and Canadian operations.
+
+Membership Fees
+
+2025 2024 2023
+
+Membership fees $ 5,323 $ 4,828 $ 4,580
+
+Membership fee revenue increased 10% in 2025, driven by new member sign-ups and membership fee increases. At the end of 2025, our member renewal rates were 92.3% in the U.S. and Canada and 89.8% worldwide. Renewal rates were negatively impacted by a higher number of memberships sold online,
+
+including through digital promotions, entering the renewal rate calculation. These members renew at a slightly lower rate on average.
+
+As previously reported, we increased our annual membership fees in the U.S. and Canada, effective September 1, 2024. We account for membership fee revenue on a deferred basis, recognized ratably over the one-year membership period. The fee income increase accounted for approximately 40% of membership income growth during 2025.
+
+Gross Margin
+
+2025 2024 2023
+
+Net sales $ 269,912 $ 249,625 $ 237,710
+
+Less merchandise costs 239,886 222,358 212,586
+
+Gross margin $ 30,026 $ 27,267 $ 25,124
+
+Gross margin percentage 11.12 % 10.92 % 10.57 %
+
+Gross margin percentage increased 20 basis points. Excluding the impact of gasoline price deflation on net sales, gross margin percentage was 11.03%, an increase of 11 basis points. This increase was positively impacted by 19 basis points in our core merchandise categories, primarily due to fresh foods and our co-branded credit card program. Gross margin percentage was negatively impacted by seven basis points due to a LIFO charge in 2025 for higher merchandise costs and one basis point in warehouse ancillary and other businesses. Changes in foreign currencies relative to the U.S. dollar negatively impacted gross margin by approximately $224, attributable to our Other International and Canadian operations.
+
+The gross margin in core merchandise categories, when expressed as a percentage of core merchandise sales (rather than total net sales), increased 16 basis points. The increase was primarily due to fresh foods and foods and sundries, partially offset by non-foods. This measure eliminates the impact of changes in sales penetration and gross margin from our warehouse ancillary and other businesses.
+
+Gross margin on a segment basis, when expressed as a percentage of the segment's own sales and excluding the impact of changes in gasoline prices on net sales (segment gross margin percentage), increased in our U.S. segment, which performed similarly to the consolidated results above. Our Canadian and Other International segments gross margin increased, primarily due to increases in core merchandise categories and warehouse ancillary and other businesses.
+
+Selling, General and Administrative Expenses
+
+2025 2024 2023
+
+SG&A expenses $ 24,966 $ 22,810 $ 21,590
+
+SG&A expenses as a percentage of net sales 9.25 % 9.14 % 9.08 %
+
+SG&A expenses as a percentage of net sales increased 11 basis points. SG&A expenses as a percentage of net sales excluding the impact of gasoline price deflation was 9.17%, an increase of three basis points. The comparison to last year was negatively impacted by three basis points due to warehouse operations and other businesses. Changes in foreign currencies relative to the U.S. dollar decreased SG&A expenses by approximately $127, attributable to our Canadian and Other International operations.
+
+Interest Expense
+
+2025 2024 2023
+
+Interest expense $ 154 $ 169 $ 160
+
+Interest expense is primarily related to Senior Notes and financing leases. The decrease was primarily due to repayment of the 2.750% Senior Notes in May 2024. For more information on our debt arrangements, refer to the consolidated financial statements included in Item 8 of this Report.
+
+Interest Income and Other, Net
+
+2025 2024 2023
+
+Interest income $ 469 $ 533 $ 470
+
+Foreign-currency transaction gains, net 84 26 29
+
+Other, net 36 65 34
+
+Interest income and other, net $ 589 $ 624 $ 533
+
+The decrease in interest income in 2025 was due to lower interest rates, partially offset by higher cash balances. Foreign-currency transaction gains, net, include revaluation or settlement of monetary assets and liabilities, and mark-to-market adjustments for forward foreign-exchange contracts. See Derivatives and Foreign-Currency sections in Note 1 to the consolidated financial statements included in Item 8 of this Report.
+
+Provision for Income Taxes
+
+2025 2024 2023
+
+Provision for income taxes $ 2,719 $ 2,373 $ 2,195
+
+Effective tax rate 25.1 % 24.4 % 25.9 %
+
+The effective tax rate for 2025 was favorably impacted by discrete tax benefits of $100 related to stock compensation.
+
+The effective tax rate for 2024 was favorably impacted by discrete tax benefits of $94 related to the portion of the special cash dividend payable through our 401(k) plan, a net non-recurring tax benefit of $63 related to a transfer pricing settlement and certain true-ups of tax reserves, and $45 related to stock compensation.
+
+The Organization of Economic Cooperation and Development (OECD) introduced a framework to implement a global minimum corporate tax of 15% (referred to as Pillar 2) which was effective for fiscal 2025. The impacts of Pillar 2 did not have a material impact on our consolidated financial statements.
+
+LIQUIDITY AND CAPITAL RESOURCES
+
+The following table summarizes our significant sources and uses of cash and cash equivalents:
+
+2025 2024 2023
+
+Net cash provided by operating activities $ 13,335 $ 11,339 $ 11,068
+
+Net cash used in investing activities (5,311) (4,409) (4,972)
+
+Net cash used in financing activities (3,775) (10,764) (2,614)
+
+Our primary sources of liquidity are cash flows from operations, cash and cash equivalents, and short-term investments. Cash and cash equivalents and short-term investments were $15,284 and $11,144 at August 31, 2025, and September 1, 2024. Of these balances, unsettled credit and debit card receivables represented approximately $2,670 and $2,519. These receivables generally settle within four days.
+
+Material contractual obligations arising in the normal course of business primarily consist of purchase obligations, long-term debt and related interest payments, leases, and construction and land purchase obligations. See Notes 4 and 5 to the consolidated financial statements included in Item 8 of this Report for amounts outstanding on August 31, 2025, related to debt and leases.
+
+Purchase obligations consist of contracts primarily related to merchandise, equipment, and third-party services, the majority of which are due in the next 12 months. Construction and land-purchase obligations consist of contracts primarily related to the development and opening of new and relocated warehouses, the majority of which (other than leases) are due in the next 12 months.
+
+We believe that our cash and investment positions and operating cash flow, with capacity under existing and available credit agreements, will be sufficient to meet our liquidity and capital requirements for the foreseeable future and that our U.S. current and projected asset position is sufficient to meet our U.S. liquidity requirements.
+
+Cash Flows from Operating Activities
+
+Net cash provided by operating activities totaled $13,335 in 2025, compared to $11,339 in 2024. Our cash flow provided by operations is primarily from net sales and membership fees. Cash flow used in operations generally consists of payments to merchandise suppliers, warehouse operating costs, including wages and employee benefits, utilities, credit and debit card processing fees, and operating leases. Cash used in operations also includes payments for income taxes. Changes in our net investment in merchandise inventories (the difference between merchandise inventories and accounts payable) is impacted by several factors, including inventory levels and turnover, payment terms with suppliers, and early payments to obtain discounts.
+
+Cash Flows from Investing Activities
+
+Net cash used in investing activities totaled $5,311 in 2025, compared to $4,409 in 2024, and is primarily related to capital expenditures. Net cash from investing activities also includes purchases and maturities of short-term investments.
+
+Capital Expenditure Plans
+
+Our primary requirements for capital are acquiring land, buildings, and equipment for new and remodeled warehouses, information systems, and manufacturing and distribution facilities. In 2025, we spent $5,498 on capital expenditures, and it is our current intention to spend $6,000 to $6,500 du ring fiscal 2026 . These expenditures are expected to be financed with cash from operations, cash and cash equivalents, and short-term investments. We opened 27 new warehous es, including three relocations, in 2025, and plan to open up to 35 new warehouses, including five relocations, in 2026. There can be no assurance that current expectations will be realized, and plans are subject to change upon further review of our capital expenditure needs and the economic environment.
+
+Cash Flows from Financing Activities
+
+Net cash used in financing activities totaled $3,775 in 2025, compared to $10,764 in 2024. Cash flow used in financing activities primarily related to the payment of dividends, repayments of long-term debt and short-term borrowings, repurchases of common stock, and withholding taxes on stock-based awards. Cash flow provided by financing activities included proceeds from short-term borrowings and issuance of long-term debt.
+
+Long-term Debt
+
+Repayments of long-term debt in 2025 totaled $103, as compared to $1,077 in 2024. Repayments in 2024 included the $1,000 outstanding principal balance on our 2.750% Senior Notes. There were no proceeds from long-term debt in 2025, as compared to $498 in 2024. Proceeds in 2024 included four Guaranteed Senior Notes issued by our Japan subsidiary.
+
+Dividends
+
+Cash dividends declared in 2025 totaled $2,183 or $4.92 per share, as compared to $8,589 or $19.36 per share in 2024. Dividends in 2024 included a special dividend of $15 per share, resulting in a payment of
+
+approximately $6,655. In April 2025, the Board of Directors increased our quarterly cash dividend from $1.16 to $1.30 per share.
+
+Share Repurchase Program
+
+On January 19, 2023, the Board of Directors authorized a share repurchase program in the amount of $4,000, which expires in January 2027. During 2025 and 2024, we repurchased 943,000 and 1,004,000 shares of common stock, at an average price per share of $957.66 and $695.29, totaling approximately $903 and $698. These amounts may differ from the accompanying consolidated statements of cash flows due to changes in unsettled repurchases at the end of each fiscal year. Purchases are made from time to time, as conditions warrant, in the open market or in block purchases, pursuant to plans under SEC Rule 10b5-1. Repurchased shares are retired, in accordance with the Washington Business Corporation Act. The remaining amount available to be purchased under our approved plan was $1,962 at the end of 2025.
+
+Bank Credit Facilities and Commercial Paper Programs
+
+We maintain bank credit facilities for working capital and general corporate purposes. At August 31, 2025, we had borrowing capacity under these facilities of $1,220. Our international operations maintain $721 of this capacity under bank credit facilities, of which $199 is guaranteed by the Company. Short-term borrowings outstanding under the bank credit facilities, which are included in other current liabilities on the consolidated balance sheets, were immaterial at the end of 2025 and 2024.
+
+We have letter of credit facilities, for commercial and standby letters of credit, totaling $224. The outstanding commitments under these facilities at the end of 2025 totaled $200, most of which were standby letters of credit that do not expire or have expiration dates within one year. The bank credit facilities have various expiration dates, most within one year, and we generally intend to renew these facilities. The amount of borrowings available at any time under our bank credit facilities is reduced by the amount of standby and commercial letters of credit outstanding.
+
+Off-Balance Sheet Arrangements
+
+In the opinion of management, we have no off-balance sheet arrangements that have had or are reasonably likely to have a material current or future effect on our financial condition or financial statements.
+
+Critical Accounting Estimates
+
+The preparation of our consolidated financial statements in accordance with U.S. GAAP requires that we make estimates and assumptions that affect the reported amounts of assets and liabilities and the disclosure of contingent assets and liabilities at the date of the financial statements and the reported amounts of revenues and expenses during the reporting period. We base our estimates on historical experience and on assumptions that we believe to be reasonable, and we continue to review and evaluate these estimates. For further information on significant accounting policies, see discussion in Note 1 to the consolidated financial statements included in Item 8 of this Report.
+
+Insurance/Self-insurance Liabilities
+
+Claims for employee health-care benefits, workers’ compensation, general liability, property damage, directors’ and officers’ liability, vehicle liability, inventory loss, and other exposures are funded predominantly through self-insurance. Insurance coverage is maintained for certain risks to limit exposures to very large losses. We use various risk management mechanisms, including a wholly-owned captive insurance subsidiary, and participate in a reinsurance program. Liabilities associated with the risks that we retain are not discounted and are estimated using historical claims experience, demographic factors, severity factors, and other actuarial assumptions. The costs of claims are highly unpredictable and can fluctuate as a result of inflation rates, regulatory or legal changes, and unforeseen developments
+
+in claim frequency and amounts. While we believe our estimates are reasonable, actual claims and costs could differ significantly from recorded liabilities. Historically, adjustments to our estimates have been immaterial.
+
+Recent Accounting Pronouncements
+
+See discussion of Recent Accounting Pronouncements in Note 1 to the consolidated financial statements included in Item 8 of this Report.
