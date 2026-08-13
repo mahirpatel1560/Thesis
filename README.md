@@ -143,6 +143,14 @@ The results engine, and the deliverable.
 |---|---|
 | `--export` | Write `reports/track_<book>_<date>.md` **and** `.pdf` |
 
+### `thesis bot`
+
+Run the Discord league. Needs `DISCORD_TOKEN` in `.env`. Long-running.
+
+| Flag | Effect |
+|---|---|
+| `--clear-global` | Maintenance, **not** startup: remove the leftover global command registrations an earlier global sync left behind, then exit without starting the bot. Run once if a command appears twice in the picker — see [Clearing the leftover global registrations](#clearing-the-leftover-global-registrations) |
+
 ---
 
 ## `thesis track --export` — the PDF
@@ -456,7 +464,8 @@ Decisions come back through `output_config.format` with a JSON schema, so the re
 A hosted Arena. Members of a Discord server `/join` to get a simulated $100,000 book traded by an LLM agent under a mandate they pick; once a week the bot runs a cycle and posts what every agent did and why.
 
 ```bash
-uv run thesis bot        # needs DISCORD_TOKEN in .env
+uv run thesis bot                  # needs DISCORD_TOKEN in .env
+uv run thesis bot --clear-global   # one-off maintenance, then exits — see below
 ```
 
 | Command | What it does | Daily cap |
@@ -609,10 +618,41 @@ the picker; one accepted but unknown here logs `WARNING`; a failed sync logs the
 traceback and says Discord still holds the previous set; no guilds at all is an
 `ERROR`, since guild-scoped commands with no guilds can appear nowhere.
 
-Leftover **global** registrations from an earlier run are reported, not deleted —
-clearing an application's global commands affects every server the app is in, which
-is not something a startup should do silently. If a command ever appears twice in a
-picker, that warning line names it and gives the two calls that remove it.
+### Clearing the leftover global registrations
+
+Switching to per-guild syncing does not retract what an earlier global sync
+registered, so both copies exist and every command shows up **twice** in the picker.
+Normal startup only reports the leftovers — a global write applies to every server
+the application is in, and a routine restart should not make that decision for you.
+
+Removing them is an explicit one-off:
+
+```bash
+uv run thesis bot --clear-global
+```
+
+It logs in over HTTP, lists what is registered globally, calls
+`tree.clear_commands(guild=None)` then `await tree.sync()` — an empty global payload,
+which is how Discord is told to drop them all — re-fetches to confirm they are gone,
+and exits. It never starts the gateway and never serves an interaction:
+
+```
+INFO  thesis.bot  removing 7 global command registration(s): buy, cycle, join, research, review, sell, standings
+INFO  thesis.bot  removed 7 global registration(s): buy, cycle, join, research, review, sell, standings. Per-guild registrations are untouched — restart with `thesis bot` and each command appears once.
+```
+
+Then start the bot normally. The per-guild registrations are untouched by the clear,
+so nothing needs re-syncing — though `on_ready` re-syncs anyway.
+
+Two details worth knowing. `login` calls `setup_hook`, so a maintenance client is
+constructed with `serve=False` and schedules no weekly loop in a process that is
+about to exit. And the removal is *verified* rather than assumed: if Discord still
+reports global commands afterwards, that logs `ERROR` instead of claiming success.
+
+The separation is asserted structurally, not just tested behaviourally:
+`clear_commands` may appear in exactly one function in `bot.py`, and it is not any
+startup path — `setup_hook`, `on_ready`, `on_guild_join`, `sync_commands`,
+`sync_one_guild`, `report_global_leftovers` and `run` are each checked for it.
 
 Two tests keep the registered set honest, and both read **PRODUCT.md's v1 scope**
 rather than restating it: one fails if a command in that scope is not registered, the

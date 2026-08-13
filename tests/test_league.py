@@ -1945,12 +1945,18 @@ class FakeTree:
         self._globals_left = globals_left
         self.copied_to: list[int] = []
         self.synced_scopes: list[int | None] = []
+        self.cleared: list[int | None] = []
 
     def get_commands(self, **kwargs: object) -> list[object]:
         return [SimpleNamespace(name=name) for name in self._defined]
 
     def copy_global_to(self, *, guild: object) -> None:
         self.copied_to.append(guild.id)
+
+    def clear_commands(self, *, guild: object | None, **kwargs: object) -> None:
+        self.cleared.append(None if guild is None else guild.id)
+        if guild is None:
+            self._globals_left = ()  # what a later fetch would now report
 
     async def sync(self, *, guild: object | None = None) -> list[object]:
         self.synced_scopes.append(None if guild is None else guild.id)
@@ -2047,15 +2053,16 @@ def test_leftover_global_registrations_are_named(caplog) -> None:
     assert "cycle, join" in caplog.text  # sorted, so the log reads the same each run
 
 
-def test_nothing_global_is_deleted_behind_the_users_back() -> None:
+def test_normal_startup_issues_no_global_write() -> None:
     """Clearing an app's global commands hits every server it is in.
 
-    So it is reported and not done. `sync(guild=None)` is the global write, and it
-    must never be issued by a startup that was only asked to register per guild.
+    So a routine restart reports them and does nothing. `sync(guild=None)` is the
+    global write; `--clear-global` is the only thing allowed to issue it.
     """
     tree = FakeTree(sorted(EXPECTED_COMMANDS), globals_left=("join",))
     asyncio.run(bot_with(tree).sync_commands())
     assert None not in tree.synced_scopes, "a global sync would rewrite every server"
+    assert tree.cleared == [], "startup must not clear anything"
 
 
 def test_a_bot_in_no_guilds_is_an_error_not_a_silent_no_op(caplog) -> None:
@@ -2181,3 +2188,245 @@ def test_every_command_fits_what_discord_will_accept() -> None:
             assert re.fullmatch(r"[a-z0-9_-]{1,32}", parameter.name), parameter.name
             for choice in getattr(parameter, "choices", ()):
                 assert 1 <= len(choice.name) <= 100, choice.name
+
+
+# ------------------------------------- `thesis bot --clear-global`, the one-off
+
+class MaintenanceClient:
+    """A logged-in client with no gateway — what the maintenance path needs.
+
+    Records the three things that matter: that it logged in, that it closed, and
+    that it never started the gateway.
+    """
+
+    def __init__(self, tree: FakeTree) -> None:
+        self.tree = tree
+        self.logged_in = False
+        self.closed = False
+        self.gateway_started = False
+
+    async def login(self, token: str) -> None:
+        self.logged_in = True
+
+    async def connect(self, **kwargs: object) -> None:
+        self.gateway_started = True
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def test_clear_global_issues_exactly_one_global_write() -> None:
+    """One write, global scope, and not a single guild touched."""
+    tree = FakeTree(sorted(EXPECTED_COMMANDS), globals_left=("cycle", "join"))
+    client = MaintenanceClient(tree)
+
+    removed = asyncio.run(bot.clear_global_commands("token", client=client))
+
+    assert tree.cleared == [None], "clear_commands(guild=None), exactly once"
+    assert tree.synced_scopes == [None], "one global write, no guild writes"
+    assert removed == ["cycle", "join"]
+
+
+def test_clear_global_never_starts_the_gateway() -> None:
+    """It logs in over HTTP, does the REST call, and exits."""
+    client = MaintenanceClient(FakeTree(sorted(EXPECTED_COMMANDS), globals_left=("join",)))
+    asyncio.run(bot.clear_global_commands("token", client=client))
+
+    assert client.logged_in, "the application id comes from the login"
+    assert not client.gateway_started, "a maintenance run must not serve anything"
+    assert client.closed, "the HTTP session has to be closed or the process hangs"
+
+
+def test_clear_global_logs_exactly_what_it_removed(caplog) -> None:
+    tree = FakeTree(sorted(EXPECTED_COMMANDS), globals_left=("cycle", "join", "research"))
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(bot.clear_global_commands("token", client=MaintenanceClient(tree)))
+
+    assert "removing 3 global command registration(s): cycle, join, research" in caplog.text
+    assert "removed 3 global registration(s): cycle, join, research" in caplog.text
+    assert "Per-guild registrations" in caplog.text, "say what was left alone"
+
+
+def test_clear_global_verifies_the_removal_rather_than_assuming_it(caplog) -> None:
+    """If Discord still reports them afterwards, that is an error, not a success."""
+
+    class Stubborn(FakeTree):
+        def clear_commands(self, *, guild: object | None, **kwargs: object) -> None:
+            self.cleared.append(None if guild is None else guild.id)
+            # Deliberately does not drop them: the write silently did nothing.
+
+    tree = Stubborn(sorted(EXPECTED_COMMANDS), globals_left=("join",))
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        asyncio.run(bot.clear_global_commands("token", client=MaintenanceClient(tree)))
+
+    assert "still registered globally after the clear: join" in caplog.text
+    assert any(record.levelno == logging.ERROR for record in caplog.records)
+
+
+def test_clear_global_writes_nothing_when_there_is_nothing_to_remove(caplog) -> None:
+    tree = FakeTree(sorted(EXPECTED_COMMANDS), globals_left=())
+    with caplog.at_level(logging.INFO, logger="thesis.bot"):
+        removed = asyncio.run(
+            bot.clear_global_commands("token", client=MaintenanceClient(tree))
+        )
+
+    assert removed == []
+    assert tree.synced_scopes == [], "no leftovers, so no write at all"
+    assert tree.cleared == []
+    assert "nothing to remove" in caplog.text
+
+
+def test_clear_global_closes_the_client_even_when_it_fails() -> None:
+    """A half-open aiohttp session would leave the command hanging."""
+
+    class Broken(FakeTree):
+        async def fetch_commands(self, *, guild: object | None = None) -> list[object]:
+            raise RuntimeError("401 Unauthorized")
+
+    client = MaintenanceClient(Broken(sorted(EXPECTED_COMMANDS)))
+    with pytest.raises(RuntimeError, match="401"):
+        asyncio.run(bot.clear_global_commands("token", client=client))
+    assert client.closed
+
+
+# -- the separation, asserted structurally rather than trusted
+
+def function_named(name: str) -> ast.AST:
+    return next(
+        node for node in ast.walk(BOT_TREE)
+        if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef))
+        and node.name == name
+    )
+
+
+def test_no_startup_path_can_clear_a_global_registration() -> None:
+    """`clear_commands` may appear in exactly one function, and it is not startup."""
+    for name in ("setup_hook", "on_ready", "on_guild_join", "sync_commands",
+                 "sync_one_guild", "report_global_leftovers", "run"):
+        called = called_attrs(function_named(name)) | called_names(function_named(name))
+        assert "clear_commands" not in called, f"{name} can wipe global commands"
+
+    maintenance = function_named("clear_global_commands")
+    assert "clear_commands" in called_attrs(maintenance)
+
+
+def test_the_two_entry_points_never_reach_each_other() -> None:
+    """`thesis bot` must not clear, and `--clear-global` must not start serving.
+
+    Bare-name calls are what distinguishes them: the serving entry point is the
+    module-level `run`, whereas `asyncio.run` is an attribute call and is exactly
+    how the maintenance path drives its coroutine.
+    """
+    startup = called_attrs(function_named("run")) | called_names(function_named("run"))
+    assert "clear_global" not in startup
+    assert "clear_global_commands" not in startup
+    assert "clear_commands" not in startup
+
+    maintenance = function_named("clear_global")
+    assert "run" not in called_names(maintenance), (
+        "the maintenance flag must not start the serving entry point"
+    )
+    assert "clear_global_commands" in called_names(maintenance)
+
+
+def test_the_maintenance_coroutine_never_opens_a_gateway() -> None:
+    """`login` is HTTP; `connect` and `Client.run` are the gateway. Only the first."""
+    work = function_named("clear_global_commands")
+    called = called_attrs(work)
+    assert "login" in called, "the application id has to come from somewhere"
+    assert "connect" not in called
+    assert "start" not in called
+    assert "run" not in called_names(work)
+    assert "close" in called, "the HTTP session must be closed"
+
+
+def test_a_maintenance_client_schedules_nothing() -> None:
+    """`login` calls `setup_hook` too, and this process is about to exit.
+
+    A weekly-loop task started here would be destroyed pending — noise at best,
+    and a coroutine that never runs at worst.
+    """
+    client = bot.LeagueBot.__new__(bot.LeagueBot)
+    client._serve = False
+    scheduled: list[object] = []
+    client.loop = SimpleNamespace(create_task=scheduled.append)
+
+    asyncio.run(client.setup_hook())
+    assert scheduled == []
+
+
+def test_a_serving_bot_does_start_the_weekly_loop() -> None:
+    """The other direction, so the guard above cannot be what disables the loop."""
+    client = bot.LeagueBot.__new__(bot.LeagueBot)
+    client._serve = True
+    scheduled: list[object] = []
+    client.loop = SimpleNamespace(create_task=scheduled.append)
+
+    asyncio.run(client.setup_hook())
+    assert len(scheduled) == 1
+    scheduled[0].close()  # never awaited; close it so pytest stays quiet
+
+
+def test_serving_is_the_default() -> None:
+    """A plain `LeagueBot()` must never be a maintenance client by accident."""
+    assert bot.LeagueBot._serve is True
+    assert bot.LeagueBot()._serve is True
+    assert bot.LeagueBot(serve=False)._serve is False
+
+
+# -- the CLI wiring
+
+def cli_invoke(*args: str, monkeypatch) -> tuple[object, list[str]]:
+    """Run `thesis bot ...` with both entry points stubbed. Returns what was called."""
+    from typer.testing import CliRunner
+
+    from thesis import cli
+
+    monkeypatch.setenv("DISCORD_TOKEN", "test-token")
+    called: list[str] = []
+    monkeypatch.setattr(bot, "run", lambda: called.append("run"))
+    monkeypatch.setattr(bot, "clear_global", lambda: called.append("clear_global") or ["join"])
+    return CliRunner().invoke(cli.app, ["bot", *args]), called
+
+
+def test_the_flag_clears_and_does_not_start_the_bot(monkeypatch) -> None:
+    result, called = cli_invoke("--clear-global", monkeypatch=monkeypatch)
+    assert result.exit_code == 0
+    assert called == ["clear_global"], "the gateway must never be started"
+    assert "will NOT start" in result.output
+    assert "join" in result.output, "the removed names are shown"
+
+
+def test_a_plain_bot_run_never_clears_anything(monkeypatch) -> None:
+    result, called = cli_invoke(monkeypatch=monkeypatch)
+    assert result.exit_code == 0
+    assert called == ["run"]
+
+
+def test_the_flag_still_needs_a_token(monkeypatch) -> None:
+    """Maintenance authenticates too, so a missing token fails the same way."""
+    from typer.testing import CliRunner
+
+    from thesis import cli
+
+    monkeypatch.delenv("DISCORD_TOKEN", raising=False)
+    called: list[str] = []
+    monkeypatch.setattr(bot, "clear_global", lambda: called.append("clear_global"))
+
+    result = CliRunner().invoke(cli.app, ["bot", "--clear-global"])
+    combined = (result.output or "") + (getattr(result, "stderr", "") or "")
+    assert result.exit_code == 1
+    assert "DISCORD_TOKEN is not set" in combined
+    assert called == []
+
+
+def test_the_flag_reports_when_there_was_nothing_to_remove(monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from thesis import cli
+
+    monkeypatch.setenv("DISCORD_TOKEN", "test-token")
+    monkeypatch.setattr(bot, "clear_global", lambda: [])
+    result = CliRunner().invoke(cli.app, ["bot", "--clear-global"])
+    assert result.exit_code == 0
+    assert "Nothing to remove" in result.output

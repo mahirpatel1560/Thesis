@@ -717,7 +717,18 @@ app.command("screen")(screen_cmd)
 # -------------------------------------------------------------------- discord bot
 
 @app.command("bot")
-def bot_cmd() -> None:
+def bot_cmd(
+    clear_global: bool = typer.Option(
+        False,
+        "--clear-global",
+        help=(
+            "Maintenance, not startup: remove the leftover GLOBAL command "
+            "registrations an earlier global sync left behind, then exit without "
+            "starting the bot. Run this once if a command appears twice in the "
+            "picker."
+        ),
+    ),
+) -> None:
     """Run the Discord league bot. Needs DISCORD_TOKEN in .env."""
     try:
         config.discord_token()
@@ -725,6 +736,26 @@ def bot_cmd() -> None:
         _die(str(exc))
         return
     from thesis import bot as bot_module
+
+    if clear_global:
+        typer.secho(
+            "Removing leftover global command registrations. The bot will NOT "
+            "start; per-guild registrations are left alone.",
+            fg=typer.colors.YELLOW,
+        )
+        removed = bot_module.clear_global()
+        if not removed:
+            typer.secho(
+                "Nothing to remove — this application has no global commands.",
+                fg=typer.colors.GREEN,
+            )
+            return
+        typer.secho(f"Removed {len(removed)}: {', '.join(removed)}", fg=typer.colors.GREEN)
+        typer.secho(
+            "Now restart with `thesis bot` — each command should appear once.",
+            fg=typer.colors.GREEN,
+        )
+        return
 
     typer.secho(
         f"Starting the league bot — books in {config.league_db_path()}, "

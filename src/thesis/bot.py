@@ -104,10 +104,16 @@ class LeagueBot(discord.Client):
     #: a test without `__init__` reads a sane default.
     _commands_synced: bool = False
 
+    #: False for a maintenance run that logs in over HTTP and exits without ever
+    #: starting the gateway. Such a process must schedule nothing.
+    _serve: bool = True
+
     def __init__(
         self,
         connect: Callable[[], Any] = league.connect,
         client_factory: Callable[[], Any] | None = None,
+        *,
+        serve: bool = True,
         **kwargs: Any,
     ) -> None:
         intents = kwargs.pop("intents", discord.Intents.default())
@@ -115,6 +121,7 @@ class LeagueBot(discord.Client):
         self.tree = LeagueTree(self)
         self._connect = connect
         self._client_factory = client_factory or _anthropic_client
+        self._serve = serve
         register_commands(self.tree, self)
 
     async def setup_hook(self) -> None:
@@ -122,6 +129,10 @@ class LeagueBot(discord.Client):
         # the gateway connects, so `self.guilds` is still empty — and this bot
         # syncs per guild. That moves to `on_ready`, which is the first point the
         # guild list exists.
+        if not self._serve:
+            # A maintenance run. `login` calls this hook too, and a task started
+            # here would outlive the work and be destroyed pending.
+            return
         self.loop.create_task(self._weekly_loop())
 
     async def on_ready(self) -> None:
@@ -920,17 +931,99 @@ def announce_channel(guild: Any) -> Any:
     return None
 
 
-def run() -> None:
-    """Entry point — `thesis bot`. Reads DISCORD_TOKEN from .env.
+def _configure_logging() -> None:
+    """Timestamps and logger names on deliberately.
 
-    Timestamps and logger names are on deliberately: the console is the only
-    place a live failure is visible, and "which command, at what time" is the
-    first thing you need from it.
+    The console is the only place a live failure is visible, and "which command,
+    at what time" is the first thing you need from it.
     """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)-8s %(name)s  %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    token = config.discord_token()
-    LeagueBot().run(token, log_handler=None)
+
+
+def _token() -> str:
+    """The single place this module reads the bot token.
+
+    Both entry points need it, and a leaked token is a full account takeover, so
+    the read stays in one auditable spot rather than being repeated per entry
+    point. `test_the_token_is_read_once_and_never_sent_anywhere` enforces that.
+    """
+    return config.discord_token()
+
+
+def run() -> None:
+    """Entry point — `thesis bot`. Reads DISCORD_TOKEN from .env."""
+    _configure_logging()
+    LeagueBot().run(_token(), log_handler=None)
+
+
+# ------------------------------------------------------- one-off maintenance
+
+async def clear_global_commands(
+    token: str, client: "LeagueBot | None" = None
+) -> list[str]:
+    """Remove the application's **global** command registrations. Returns the names.
+
+    An earlier global `tree.sync()` registered the commands at application level.
+    Switching to per-guild syncing does not retract those, so a member sees each
+    command twice: once from the guild copy this bot maintains, once from the
+    global leftover. This removes the leftovers.
+
+    Deliberately not part of startup. A global write applies to every server the
+    application is in, which is not a decision a routine restart should make on
+    the operator's behalf — `sync_commands` only ever reports the leftovers, and a
+    test asserts normal startup issues no global write at all.
+
+    `login` authenticates over HTTP and fetches the application id; the command
+    endpoints are plain REST, so the gateway is never started and no interaction
+    is ever served. `serve=False` keeps `setup_hook` — which `login` also calls —
+    from starting the weekly loop in a process about to exit.
+    """
+    bot_client = client if client is not None else LeagueBot(serve=False)
+    try:
+        await bot_client.login(token)
+        before = sorted(
+            command.name for command in await bot_client.tree.fetch_commands()
+        )
+        if not before:
+            log.info(
+                "no global command registrations found — nothing to remove. Any "
+                "duplicate in the picker is not coming from this application."
+            )
+            return []
+
+        log.info(
+            "removing %d global command registration(s): %s",
+            len(before), ", ".join(before),
+        )
+        bot_client.tree.clear_commands(guild=None)
+        await bot_client.tree.sync()
+
+        if remaining := sorted(
+            command.name for command in await bot_client.tree.fetch_commands()
+        ):
+            log.error(
+                "still registered globally after the clear: %s — the duplicates "
+                "will persist", ", ".join(remaining),
+            )
+        else:
+            log.info(
+                "removed %d global registration(s): %s. Per-guild registrations "
+                "are untouched — restart with `thesis bot` and each command "
+                "appears once.", len(before), ", ".join(before),
+            )
+        return before
+    finally:
+        await bot_client.close()
+
+
+def clear_global() -> list[str]:
+    """Entry point — `thesis bot --clear-global`. Does the one job and exits.
+
+    Never reached from `run`, and `run` is never reached from here.
+    """
+    _configure_logging()
+    return asyncio.run(clear_global_commands(_token()))
