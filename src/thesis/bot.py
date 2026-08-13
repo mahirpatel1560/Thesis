@@ -64,6 +64,7 @@ import datetime as dt
 import logging
 import weakref
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Callable
 
 import discord
@@ -245,8 +246,49 @@ class LeagueBot(discord.Client):
                 "tree.sync().", len(leftovers), ", ".join(leftovers),
             )
 
+    def cycle_state(self, guild_ids: list[int]) -> tuple[date | None, int]:
+        """When a cycle last ran, and how many members are enrolled. One read."""
+        conn = self._connect()
+        try:
+            return (
+                arena.last_cycle_date(conn),
+                sum(len(league.members(conn, guild_id)) for guild_id in guild_ids),
+            )
+        finally:
+            conn.close()
+
+    async def report_missed_cycle(self, now: dt.datetime | None = None) -> str | None:
+        """Say so if a cycle fell due while the process was down. Never runs one.
+
+        See `missed_cycle_notice` for why skipping is the safe default. Reading the
+        database happens off the loop like everything else, and a failure here is
+        logged rather than allowed to stop the bot from starting: not knowing
+        whether a cycle was missed is no reason to serve nobody.
+        """
+        now = now or dt.datetime.now(dt.timezone.utc)
+        try:
+            last, members = await asyncio.to_thread(
+                self.cycle_state, [guild.id for guild in self.guilds]
+            )
+        except Exception:
+            log.exception("could not check whether a cycle was missed")
+            return None
+
+        notice = missed_cycle_notice(
+            last_scheduled_cycle(now), last, members, next_cycle_at(now)
+        )
+        if notice:
+            log.warning(notice)
+        else:
+            log.info(
+                "no cycle missed; the next is due %s UTC",
+                next_cycle_at(now).strftime("%Y-%m-%d %H:%M"),
+            )
+        return notice
+
     async def _weekly_loop(self) -> None:
         await self.wait_until_ready()
+        await self.report_missed_cycle()
         while not self.is_closed():
             await asyncio.sleep(seconds_until_next_cycle(dt.datetime.now(dt.timezone.utc)))
             try:
@@ -1007,6 +1049,63 @@ def seconds_until_next_cycle(now: dt.datetime) -> float:
     if target <= now:
         target += dt.timedelta(days=7)
     return (target - now).total_seconds()
+
+
+def next_cycle_at(now: dt.datetime) -> dt.datetime:
+    return now + dt.timedelta(seconds=seconds_until_next_cycle(now))
+
+
+def last_scheduled_cycle(now: dt.datetime) -> dt.datetime:
+    """The most recent Monday 22:00 UTC at or before `now`.
+
+    The counterpart to `seconds_until_next_cycle`: what *should* have run by now.
+    """
+    days_back = (now.weekday() - CYCLE_WEEKDAY) % 7
+    candidate = (now - dt.timedelta(days=days_back)).replace(
+        hour=CYCLE_HOUR, minute=0, second=0, microsecond=0
+    )
+    if candidate > now:
+        candidate -= dt.timedelta(days=7)
+    return candidate
+
+
+def missed_cycle_notice(
+    due: dt.datetime,
+    last: date | None,
+    members: int,
+    next_at: dt.datetime,
+) -> str | None:
+    """The console line for a cycle that fell due while the process was down.
+
+    Returns None when nothing was missed, so a caller logs only when there is
+    something to say.
+
+    **A missed cycle is reported and skipped, never replayed on start.** The
+    container runs under `restart: unless-stopped`, so a crash restarts it — and a
+    replay-on-start would then run one cycle per restart, each spending Sonnet
+    budget and placing real orders on every member's book. The two failure modes
+    are not comparable: skipping costs one quiet week that a server manager can
+    fix with `/cycle`, while replaying on a restart loop spends money and moves
+    every book, repeatedly, with nobody watching.
+
+    An idempotent catch-up — "run only if none has run this week" — would bound
+    that, but it makes the safety of a money-spending, order-placing action depend
+    on one query being right. Skipping is safe by construction, and the whole
+    point of `/cycle` is that a human can start one deliberately.
+    """
+    if members == 0:
+        return None  # no books to cycle, so nothing was missed
+    if last is not None and last >= due.date():
+        return None
+    ran = f"the last ran {last.isoformat()}" if last else "none has ever run"
+    return (
+        f"MISSED CYCLE — one was due {due:%Y-%m-%d %H:%M} UTC, {members} member(s) "
+        f"enrolled, {ran}. It will NOT be replayed automatically: this process "
+        f"restarts on failure, and replaying on start would run a cycle per "
+        f"restart, spending API budget and placing orders on every book each time. "
+        f"A server manager can run /cycle to catch up now; otherwise the next "
+        f"scheduled cycle is {next_at:%Y-%m-%d %H:%M} UTC."
+    )
 
 
 #: Discord rejects a message over 2000 characters.

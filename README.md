@@ -706,6 +706,140 @@ would not find.
 
 ---
 
+## DEPLOY — always-on hosting
+
+The bot has to outlive a closed laptop. It runs as a container on a small VPS:
+one process, one mounted volume, restarted automatically.
+
+**Sizing.** 1 vCPU and 1 GB of RAM is enough; 2 GB is comfortable. It is not CPU
+work that limits this but the GIL — see [the concurrency
+cap](#off-the-loop-is-not-enough--the-gil-is) — so a bigger box does not raise
+`MAX_CONCURRENT_WORK`.
+
+### Provision (once, on the server)
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+```bash
+sudo usermod -aG docker $USER && newgrp docker
+```
+
+```bash
+git clone <your-repo-url> thesis && cd thesis
+```
+
+Then write the secrets. They live only on the server, only in this file, and are
+passed to the container as environment variables — never built into the image:
+
+```bash
+cp .env.example .env && nano .env
+```
+
+`DISCORD_TOKEN`, `ANTHROPIC_API_KEY` and `SEC_EDGAR_USER_AGENT` are all required.
+Compose refuses to start without them by name rather than booting a bot that
+cannot log in, or one that fails every `/research` an hour later.
+
+### Ship
+
+```bash
+docker compose up -d --build
+```
+
+Confirm it actually registered its commands — this is the line that matters, and
+the one whose absence caused the `/research` outage:
+
+```bash
+docker compose logs bot | grep "commands Discord accepted"
+```
+
+### Update
+
+```bash
+git pull && docker compose up -d --build
+```
+
+The books are on a named volume, so this replaces the code and keeps every
+member's positions, history and cached briefs. Nothing needs re-syncing —
+`on_ready` re-registers the commands on each start.
+
+### Logs
+
+```bash
+docker compose logs -f --tail=100 bot
+```
+
+Rotation is configured in `docker-compose.yml` (10 MB × 3), because an always-on
+process on a small disk will otherwise fill it.
+
+### Other operations
+
+```bash
+docker compose restart bot
+```
+
+```bash
+docker compose down          # stop; the volume and its data survive
+```
+
+The one-off global-command cleanup, in the container:
+
+```bash
+docker compose run --rm bot thesis bot --clear-global
+```
+
+Back up the books — do this before anything irreversible:
+
+```bash
+docker run --rm -v thesis_thesis-data:/data -v "$PWD:/backup" busybox tar czf /backup/thesis-books-$(date +%F).tar.gz -C /data .
+```
+
+`docker compose down -v` would delete that volume and every member's book with
+it. There is no undo, so take the backup first.
+
+### A cycle missed while the process was down
+
+**It is reported and skipped, never replayed on start.**
+
+The container runs `restart: unless-stopped`, so a crash restarts it. A
+replay-on-start would then run one cycle per restart — each spending Sonnet budget
+and placing orders on every member's book, unattended. Skipping costs one quiet
+week that a server manager fixes with `/cycle`; replaying on a restart loop costs
+money and moves every book, repeatedly, with nobody watching. The failure modes
+are not comparable, so the safe default wins.
+
+An idempotent catch-up ("run only if none has run this week") would bound the
+damage, and it was the tempting option. It was rejected because it makes the
+safety of a money-spending, order-placing action depend on one query being
+right — whereas skipping is safe by construction, and `/cycle` already exists
+precisely so a human can start one deliberately.
+
+On startup the console says which it is:
+
+```
+WARNING  thesis.bot  MISSED CYCLE — one was due 2026-08-10 22:00 UTC, 4 member(s) enrolled, the last ran 2026-08-03. It will NOT be replayed automatically: this process restarts on failure, and replaying on start would run a cycle per restart, spending API budget and placing orders on every book each time. A server manager can run /cycle to catch up now; otherwise the next scheduled cycle is 2026-08-17 22:00 UTC.
+```
+
+Nothing is said when a cycle is not overdue, or when no member has joined yet —
+a server with no books has missed nothing.
+
+### What is deliberately not in the image
+
+Secrets and state. `.dockerignore` excludes `.env`, `journal.db`, `*.db`,
+`.cache/`, `briefs/` and `reports/`; the Dockerfile copies named paths rather than
+`COPY . .`, so a new file cannot slip in by default; and no `ENV` or `ARG` carries
+a credential. An image layer travels wherever the image does and a rebuild cannot
+unpublish it, so this is asserted by tests in `tests/test_deploy.py` rather than
+left to review.
+
+State paths are environment-driven — `THESIS_CACHE_DIR`, `THESIS_BRIEFS_DIR`,
+`THESIS_REPORTS_DIR` — and compose points all three under `/data`. A test asserts
+every one of them resolves onto the volume, because a path outside it is a path
+that disappears on the next deploy.
+
+---
+
 ## The landing page — `site/`
 
 One screen, one file: `site/index.html` carries its own CSS inline, loads nothing from

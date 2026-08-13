@@ -1,0 +1,35 @@
+# The first job of this file is keeping secrets out of the image. A COPY that
+# picks up .env bakes a bot token into a layer, and that layer travels wherever
+# the image does — a rebuild cannot remove it, only a new history can.
+.env
+.env.*
+!.env.example
+
+# Local state. These belong on the mounted volume, not in the image: copying a
+# laptop's league.db into a deploy would overwrite the server's books.
+.cache/
+journal.db
+*.db
+briefs/
+reports/
+
+# Build and tool noise — none of it affects the running bot, all of it slows the
+# build context transfer.
+.git/
+.gitignore
+.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Not part of the service. Tests are deliberately excluded: they run in CI and on
+# a laptop, and the container has no business carrying them.
+tests/
+site/
+.claude/
+Dockerfile
+docker-compose.yml
+.dockerignore

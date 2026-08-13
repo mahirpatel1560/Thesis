@@ -246,7 +246,7 @@ def generate(
     """
     ticker = ticker.upper()
     today = date.today().isoformat()
-    output_dir = briefs_dir or config.BRIEFS_DIR
+    output_dir = briefs_dir or config.briefs_dir()
 
     prices = market.summarize_prices(market.get_prices(ticker, period="2y"))
     fundamentals = market.get_fundamentals(ticker)

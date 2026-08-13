@@ -620,9 +620,9 @@ def track_cmd(
     )
 
     if export:
-        config.REPORTS_DIR.mkdir(exist_ok=True)
+        config.reports_dir().mkdir(exist_ok=True)
         stem = f"track_{book}_{report.as_of}"
-        markdown_path = config.REPORTS_DIR / f"{stem}.md"
+        markdown_path = config.reports_dir() / f"{stem}.md"
         markdown_path.write_text(markdown, encoding="utf-8")
         typer.secho(f"Wrote {markdown_path}", fg=typer.colors.GREEN)
 
@@ -630,7 +630,7 @@ def track_cmd(
         try:
             pdf_path = pdf.render_pdf(
                 markdown,
-                config.REPORTS_DIR / f"{stem}.pdf",
+                config.reports_dir() / f"{stem}.pdf",
                 paper=report.is_paper,
                 title=f"Track Record — {label} — {report.as_of}",
                 generated=report.as_of,
@@ -981,9 +981,9 @@ def arena_run(
     typer.secho(estimate.render(), fg=typer.colors.YELLOW)
 
     if dry_run:
-        config.REPORTS_DIR.mkdir(exist_ok=True)
+        config.reports_dir().mkdir(exist_ok=True)
         for name, packet in packets.items():
-            path = config.REPORTS_DIR / f"arena_packet_{name}_{as_of}.txt"
+            path = config.reports_dir() / f"arena_packet_{name}_{as_of}.txt"
             path.write_text(packet, encoding="utf-8")
             typer.secho(f"Wrote {path} ({len(packet):,} chars)", fg=typer.colors.GREEN)
         typer.secho("Dry run — no API call made, no decisions logged.", fg=typer.colors.GREEN)
@@ -1111,8 +1111,8 @@ def arena_report(
     typer.echo(text)
 
     if export:
-        config.REPORTS_DIR.mkdir(exist_ok=True)
-        path = config.REPORTS_DIR / f"arena_{journal.today()}.md"
+        config.reports_dir().mkdir(exist_ok=True)
+        path = config.reports_dir() / f"arena_{journal.today()}.md"
         path.write_text(text, encoding="utf-8")
         typer.secho(f"Wrote {path}", fg=typer.colors.GREEN)
 

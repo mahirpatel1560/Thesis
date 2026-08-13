@@ -468,7 +468,7 @@ def build_packet(
 
 def briefs_for(tickers: Iterable[str], briefs_dir: Path | None = None) -> dict[str, str]:
     """Load the most recent saved brief for each named ticker."""
-    directory = briefs_dir or config.BRIEFS_DIR
+    directory = briefs_dir or config.briefs_dir()
     if not directory.exists():
         return {}
     out: dict[str, str] = {}
@@ -912,6 +912,19 @@ def record_cycle_review(
     if existing:
         return
     journal.record_review(conn, agent, "arena cycle review", cycle_date)
+
+
+def last_cycle_date(conn: sqlite3.Connection) -> date | None:
+    """When a cycle last ran, or None if none ever has.
+
+    Read by the bot on startup to work out whether a scheduled cycle was missed
+    while the process was down. A read only — deciding what to do about it is not
+    this module's business.
+    """
+    row = conn.execute(
+        "SELECT cycle_date FROM arena_cycles ORDER BY cycle_date DESC, id DESC LIMIT 1"
+    ).fetchone()
+    return date.fromisoformat(row[0]) if row else None
 
 
 def start_cycle(conn: sqlite3.Connection, cycle_date: date, model: str) -> int:

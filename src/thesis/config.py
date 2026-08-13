@@ -23,16 +23,44 @@ def model() -> str:
     return os.environ.get("THESIS_MODEL") or DEFAULT_MODEL
 
 
+def _from_env(name: str, fallback: Path) -> Path:
+    override = os.environ.get(name, "").strip()
+    return Path(override) if override else fallback
+
+
+def cache_dir() -> Path:
+    """Where derived state lives: the databases and the cached briefs.
+
+    `THESIS_CACHE_DIR` moves all of it at once, which is what a container needs —
+    one mounted volume and one variable, rather than remembering to redirect each
+    database individually. The per-file overrides below still win where they are
+    set, so a test can point one database at a tmp file without moving the rest.
+    """
+    return _from_env("THESIS_CACHE_DIR", CACHE_DIR)
+
+
+def briefs_dir() -> Path:
+    """Generated briefs. `THESIS_BRIEFS_DIR` puts them on the volume too.
+
+    Worth persisting rather than regenerating: a brief costs a model call, and the
+    league serves one per company per week to everybody who asks.
+    """
+    return _from_env("THESIS_BRIEFS_DIR", BRIEFS_DIR)
+
+
+def reports_dir() -> Path:
+    """Exported track records. `THESIS_REPORTS_DIR` overrides."""
+    return _from_env("THESIS_REPORTS_DIR", REPORTS_DIR)
+
+
 def db_path() -> Path:
     """The journal database. THESIS_DB overrides it (tests point at a tmp file)."""
-    override = os.environ.get("THESIS_DB", "").strip()
-    return Path(override) if override else DB_PATH
+    return _from_env("THESIS_DB", DB_PATH)
 
 
 def price_cache_path() -> Path:
     """The price cache. THESIS_PRICE_CACHE overrides it (tests point at a tmp file)."""
-    override = os.environ.get("THESIS_PRICE_CACHE", "").strip()
-    return Path(override) if override else CACHE_DIR / "prices.db"
+    return _from_env("THESIS_PRICE_CACHE", cache_dir() / "prices.db")
 
 
 #: League cycles run many member books at once, so they run on Sonnet rather than
@@ -46,8 +74,7 @@ def league_db_path() -> Path:
     Same isolation rule as `arena_db_path`: a different file, so a bug in the bot
     layer cannot reach the human's books or the arena's. THESIS_LEAGUE_DB overrides.
     """
-    override = os.environ.get("THESIS_LEAGUE_DB", "").strip()
-    return Path(override) if override else CACHE_DIR / "league.db"
+    return _from_env("THESIS_LEAGUE_DB", cache_dir() / "league.db")
 
 
 def discord_token() -> str:
@@ -68,8 +95,7 @@ def arena_db_path() -> Path:
     Physical isolation, not just a different `book` column: an arena bug cannot
     reach `journal.db` because it never opens it. THESIS_ARENA_DB overrides.
     """
-    override = os.environ.get("THESIS_ARENA_DB", "").strip()
-    return Path(override) if override else CACHE_DIR / "arena.db"
+    return _from_env("THESIS_ARENA_DB", cache_dir() / "arena.db")
 
 
 def sec_user_agent() -> str:

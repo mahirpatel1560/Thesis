@@ -1,0 +1,48 @@
+# Always-on hosting for the league bot on a small VPS.
+#
+# Secrets are read from the environment, never baked into the image. Compose picks
+# up a .env file sitting next to this one for substitution, so on the server:
+#
+#   DISCORD_TOKEN=...
+#   ANTHROPIC_API_KEY=...
+#   SEC_EDGAR_USER_AGENT=thesis-league you@example.com
+#
+# That .env is read by Compose on the host and passed in as environment variables.
+# It is never COPYied into the image — see .dockerignore.
+
+services:
+  bot:
+    build: .
+    image: thesis-bot:latest
+    restart: unless-stopped
+
+    # The `:?` form fails the command with a named error instead of starting a bot
+    # that cannot log in, or one that refuses every /research an hour later.
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?set DISCORD_TOKEN in .env next to this file}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env next to this file}
+      SEC_EDGAR_USER_AGENT: ${SEC_EDGAR_USER_AGENT:?SEC requires a contact string, e.g. "thesis-league you@example.com"}
+      # Where the bot keeps state. Must stay under the mounted volume below.
+      THESIS_CACHE_DIR: /data/cache
+      THESIS_BRIEFS_DIR: /data/briefs
+      THESIS_REPORTS_DIR: /data/reports
+
+    # The books. league.db, arena.db, the price cache and the cached briefs all
+    # live here, so `docker compose up --build` replaces the code and keeps the
+    # league. Losing this volume loses every member's positions and history.
+    volumes:
+      - thesis-data:/data
+
+    # PID 1 that reaps children and forwards signals, so `docker compose stop`
+    # shuts the gateway down cleanly rather than waiting out the kill timeout.
+    init: true
+
+    # A small VPS has a small disk, and an always-on process writes logs forever.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  thesis-data:

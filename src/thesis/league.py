@@ -728,7 +728,7 @@ def briefs_dir() -> Path:
     means a brief's provenance is never ambiguous, and a cheaper league brief can
     never be mistaken for the user's own research later.
     """
-    return config.BRIEFS_DIR / "league"
+    return config.briefs_dir() / "league"
 
 
 def week_key(day: date) -> str:
